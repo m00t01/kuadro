@@ -1,0 +1,100 @@
+{
+  "name": "hojabase",
+  "productName": "Kuadro",
+  "version": "1.0.0",
+  "description": "Tables, kanban, gallery, calendar and pages on top of Google Sheets",
+  "author": {
+    "name": "Marcos Toscano",
+    "email": "m00t01@users.noreply.github.com"
+  },
+  "type": "module",
+  "main": "main.cjs",
+  "scripts": {
+    "build": "node build.mjs",
+    "start": "node build.mjs && electron .",
+    "test": "node --test test/*.test.js",
+    "dist:win": "node build.mjs && electron-builder --win nsis --x64",
+    "dist:mac": "node build.mjs && electron-builder --mac dmg",
+    "dist:portable": "node build.mjs && electron-builder --win portable --x64"
+  },
+  "build": {
+    "appId": "com.marcostoscano.hojabase",
+    "files": [
+      "main.cjs",
+      "preload.cjs",
+      "capture-preload.cjs",
+      "dist/**",
+      "package.json"
+    ],
+    "win": {
+      "target": "nsis",
+      "signAndEditExecutable": false,
+      "icon": "build/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "installerIcon": "build/icon.ico",
+      "artifactName": "Kuadro-Setup-${version}.exe",
+      "createDesktopShortcut": true
+    },
+    "mac": {
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        }
+      ],
+      "category": "public.app-category.productivity",
+      "icon": "build/icon.png",
+      "artifactName": "Kuadro-${version}-mac-${arch}.${ext}"
+    },
+    "directories": {
+      "output": "release"
+    },
+    "icon": "build/icon.png",
+    "artifactName": "Kuadro-${version}-${os}.${ext}",
+    "afterPack": "build/afterPack.cjs",
+    "portable": {
+      "artifactName": "Kuadro-${version}-windows.exe"
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "m00t01",
+        "repo": "kuadro"
+      }
+    ]
+  },
+  "devDependencies": {
+    "electron": "^33.4.11",
+    "electron-builder": "^25.1.8",
+    "esbuild": "^0.28.2",
+    "puppeteer-core": "^25.17.0",
+    "resedit": "^2.0.3"
+  },
+  "dependencies": {
+    "@tiptap/core": "^2.27.3",
+    "@tiptap/extension-image": "^2.27.3",
+    "@tiptap/extension-link": "^2.27.3",
+    "@tiptap/extension-placeholder": "^2.27.3",
+    "@tiptap/extension-table": "^2.27.3",
+    "@tiptap/extension-table-cell": "^2.27.3",
+    "@tiptap/extension-table-header": "^2.27.3",
+    "@tiptap/extension-table-row": "^2.27.3",
+    "@tiptap/extension-task-item": "^2.27.3",
+    "@tiptap/extension-task-list": "^2.27.3",
+    "@tiptap/pm": "^2.27.3",
+    "@tiptap/starter-kit": "^2.27.3",
+    "diff-match-patch": "^1.0.5",
+    "electron-updater": "^6.8.11",
+    "preact": "^11.2.0",
+    "tiptap-markdown": "^0.8.10"
+  },
+  "repository": "https://github.com/m00t01/kuadro",
+  "homepage": "https://m00t01.github.io/kuadro/",
+  "license": "UNLICENSED"
+}

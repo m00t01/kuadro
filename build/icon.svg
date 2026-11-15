@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#7c5cff"/><stop offset="0.55" stop-color="#4f46e5"/><stop offset="1" stop-color="#1e1b4b"/>
+    </linearGradient>
+    <linearGradient id="hot" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffd166"/><stop offset="1" stop-color="#ff6b6b"/>
+    </linearGradient>
+    <filter id="sh" x="-30%" y="-30%" width="160%" height="160%"><feDropShadow dx="0" dy="22" stdDeviation="22" flood-color="#0b0820" flood-opacity="0.55"/></filter>
+    <clipPath id="sq"><rect x="64" y="64" width="896" height="896" rx="208"/></clipPath>
+  </defs>
+  <rect x="64" y="64" width="896" height="896" rx="208" fill="url(#bg)"/>
+  <g clip-path="url(#sq)" opacity="0.10" fill="#fff"><circle cx="860" cy="150" r="300"/></g>
+  <!-- cuadrícula: tres celdas fijas -->
+  <g fill="#ffffff">
+    <rect x="232" y="232" width="250" height="250" rx="62" opacity="0.95"/>
+    <rect x="232" y="542" width="250" height="250" rx="62" opacity="0.55"/>
+    <rect x="542" y="542" width="250" height="250" rx="62" opacity="0.30"/>
+  </g>
+  <!-- la cuarta celda se levanta como tarjeta -->
+  <g filter="url(#sh)" transform="rotate(-9 667 357)">
+    <rect x="530" y="214" width="290" height="290" rx="66" fill="url(#hot)"/>
+    <rect x="580" y="282" width="150" height="26" rx="13" fill="#fff" opacity="0.95"/>
+    <rect x="580" y="336" width="190" height="26" rx="13" fill="#fff" opacity="0.7"/>
+    <rect x="580" y="390" width="110" height="26" rx="13" fill="#fff" opacity="0.7"/>
+  </g>
+</svg>

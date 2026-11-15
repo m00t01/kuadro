@@ -1,0 +1,16 @@
+import { LANG } from './i18n.js';
+export const q = t => `'${String(t).replace(/'/g, "''")}'`;
+export const colL = i => { let s = ''; i++; while (i > 0) { const m = (i - 1) % 26; s = String.fromCharCode(65 + m) + s; i = Math.floor((i - 1) / 26); } return s; };
+export const colI = L => [...L].reduce((n, c) => n * 26 + c.charCodeAt(0) - 64, 0) - 1;
+const EPOCH = Date.UTC(1899, 11, 30);
+export const serialToISO = n => new Date(EPOCH + Math.round(n * 86400000)).toISOString().slice(0, 10);
+export const isoToSerial = s => Math.round((Date.UTC(+s.slice(0, 4), +s.slice(5, 7) - 1, +s.slice(8, 10)) - EPOCH) / 86400000);
+export const isISO = s => typeof s === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s);
+export const newId = () => { const a = new Uint8Array(8); crypto.getRandomValues(a); return [...a].map(b => 'abcdefghijklmnopqrstuvwxyz0123456789'[b % 36]).join(''); };
+export const norm = s => String(s ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+export const chunk = (s, n) => { const o = []; for (let i = 0; i < s.length; i += n) o.push(s.slice(i, i + n)); return o; };
+export const urls = s => String(s ?? '').split(/\s+/).filter(u => /^https?:\/\//.test(u));
+export const ytId = u => { const m = String(u).match(/(?:youtu\.be\/|[?&]v=|\/shorts\/|\/embed\/)([\w-]{11})/); return m ? m[1] : null; };
+export const driveId = u => { const m = String(u).match(/(?:\/d\/|[?&]id=)([\w-]{20,})/); return m ? m[1] : null; };
+export const imgSrc = u => { u = urls(u)[0] || ''; const d = /drive\.google|docs\.google|googleusercontent/.test(u) && driveId(u); if (d) return `https://drive.google.com/thumbnail?id=${d}&sz=w800`; const y = ytId(u); if (y) return `https://i.ytimg.com/vi/${y}/mqdefault.jpg`; return u; };
+export const fmtDate = iso => { if (!isISO(iso)) return iso || ''; const [y, m, d] = iso.split('-'); const M = LANG === 'es' ? ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'] : ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']; return LANG === 'es' ? `${+d} ${M[m - 1]} ${y}` : `${M[m - 1]} ${+d}, ${y}`; };
