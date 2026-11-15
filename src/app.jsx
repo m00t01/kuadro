@@ -44,6 +44,7 @@ function Appearance({ value, onChange }) {
     <button class="btn" onClick={() => onChange({ ...APPEAR0 })}>{tr("Restablecer")}</button>
     <p class="hint">{tr("La apariencia es personal: solo cambia en esta computadora, no para tu equipo.")}</p>
     {native && native.prefs && <Shortcuts />}
+    {native && native.updateState && <Updates />}
   </div>;
 }
 // Idioma de la interfaz (cada persona elige; se guarda en esta computadora).
@@ -65,9 +66,60 @@ function Shortcuts() {
     <div class="lrow0"><span class="kbd big">{rec ? tr('Presiona la combinación…') : prettyAccel(p.shortcut) || tr('(sin atajo)')}</span>
       <button class={'btn' + (rec ? ' on' : '')} onClick={() => setRec(true)} onKeyDown={e => { if (!rec) return; e.preventDefault(); e.stopPropagation(); if (e.key === 'Escape') { setRec(false); return; } const a = toAccel(e); if (a) { setRec(false); save({ shortcut: a }); } }} onBlur={() => setRec(false)}>{rec ? tr('Escuchando… (Esc cancela)') : tr('Cambiar atajo')}</button>
       <button class="btn" onClick={() => save({ shortcut: '' })}>{tr("Desactivar")}</button></div>
-    <label class="chk"><input type="checkbox" checked={p.tray} onChange={e => save({ tray: e.target.checked })} />Al cerrar la ventana, mantener Kuadro en la bandeja (para que el atajo siga funcionando)</label>
-    <label class="chk"><input type="checkbox" checked={p.autostart} onChange={e => save({ autostart: e.target.checked })} />Abrir Kuadro al iniciar la computadora (minimizado)</label>
+    <label class="chk"><input type="checkbox" checked={p.tray} onChange={e => save({ tray: e.target.checked })} />{tr("Al cerrar la ventana, mantener Kuadro en la bandeja (para que el atajo siga funcionando)")}</label>
+    <label class="chk"><input type="checkbox" checked={p.autostart} onChange={e => save({ autostart: e.target.checked })} />{tr("Abrir Kuadro al iniciar la computadora (minimizado)")}</label>
     {msg && <p class="hint">{msg}</p>}</div>;
+}
+// Actualizaciones: estado en vivo desde el proceso principal, botón "Buscar actualizaciones" y aviso cuando hay una lista.
+function useUpdate() {
+  const [u, setU] = useState(null);
+  useEffect(() => { if (!native || !native.updateState) return; native.updateState().then(setU); return native.onUpdate(setU); }, []);
+  return u;
+}
+const isMac = typeof navigator !== 'undefined' && navigator.platform.startsWith('Mac');
+function updText(u) {
+  if (!u) return '';
+  switch (u.state) {
+    case 'checking': return tr('Buscando actualizaciones…');
+    case 'none': return tr('Tienes la versión más reciente.');
+    case 'available': return tr('Hay una versión nueva: {v}.', { v: u.version });
+    case 'downloading': return tr('Descargando la versión {v}… {p}%', { v: u.version, p: u.percent || 0 });
+    case 'ready': return tr('La versión {v} está lista para instalarse.', { v: u.version });
+    case 'error': return tr('No se pudo buscar actualizaciones. Revisa tu conexión e inténtalo de nuevo.');
+    case 'dev': return tr('Las actualizaciones solo funcionan en la app instalada.');
+    default: return '';
+  }
+}
+function Updates() {
+  const u = useUpdate(), [busy, setBusy] = useState(false);
+  if (!u) return null;
+  const check = async () => { setBusy(true); try { await native.checkUpdates(); } finally { setBusy(false); } };
+  const checking = busy || u.state === 'checking';
+  return <div class="f" style={{ marginTop: '18px' }}><b class="tx">{tr("Actualizaciones")}</b>
+    <p class="hint">{tr("Versión instalada:")} {u.current}. {isMac ? tr("Kuadro revisa si hay versiones nuevas al abrirse y cada 6 horas.") : tr("Kuadro revisa si hay versiones nuevas al abrirse y cada 6 horas, las descarga sola y las instala al cerrarse.")}</p>
+    <div class="lrow0">
+      {u.state === 'ready' ? <button class="btn primary" onClick={() => native.installUpdate()}>{tr("Reiniciar y actualizar")}</button>
+        : u.state === 'available' ? <button class="btn primary" onClick={() => native.installUpdate()}>{tr("Descargar la versión {v}", { v: u.version })}</button>
+        : <button class="btn" disabled={checking || u.state === 'downloading' || u.state === 'dev'} onClick={check}>{checking ? tr('Buscando…') : tr('Buscar actualizaciones')}</button>}
+      <span class="hint" style={{ margin: 0 }}>{updText(u)}</span></div>
+    {u.state === 'error' && u.error && <p class="hint">{u.error}</p>}</div>;
+}
+// Barra fija cuando una actualización ya está descargada (o, en Mac, disponible).
+function UpdateBanner() {
+  const u = useUpdate(), [hide, setHide] = useState('');
+  if (!u || !(u.state === 'ready' || u.state === 'available') || hide === u.version) return null;
+  return <div class="upd-banner"><span>{u.state === 'ready' ? tr('Kuadro {v} está lista.', { v: u.version }) : tr('Hay una versión nueva de Kuadro: {v}.', { v: u.version })}</span>
+    <button class="btn primary" onClick={() => native.installUpdate()}>{u.state === 'ready' ? tr('Reiniciar y actualizar') : tr('Descargar')}</button>
+    <button class="icon" title={tr("Más tarde")} onClick={() => setHide(u.version)}>✕</button></div>;
+}
+// Versión y botón compacto para la pantalla de inicio.
+function HomeVersion() {
+  const u = useUpdate();
+  if (!u) return null;
+  return <div class="home-ver">Kuadro {u.current} · {u.state === 'ready' || u.state === 'available' ? <a href="#" onClick={e => { e.preventDefault(); native.installUpdate(); }}>{u.state === 'ready' ? tr('Reiniciar y actualizar a {v}', { v: u.version }) : tr('Descargar la versión {v}', { v: u.version })}</a>
+    : u.state === 'checking' || u.state === 'downloading' ? <span>{updText(u)}</span>
+    : <a href="#" onClick={e => { e.preventDefault(); if (u.state !== 'dev') native.checkUpdates(); }}>{tr('Buscar actualizaciones')}</a>}
+    {(u.state === 'none' || u.state === 'error' || u.state === 'dev') && <span> · {updText(u)}</span>}</div>;
 }
 // Color de fondo de una columna del kanban.
 const COLBG = ['', 'gray', 'brown', 'orange', 'yellow', 'green', 'blue', 'purple', 'pink', 'red'];
@@ -340,7 +392,8 @@ function Home({ user, setUser, projects, setProjects, onOpen }) {
       {!projects.length && <p class="muted">{tr("Aún no agregas ningún Sheet.")}</p>}
       <div class="lrow"><input class="grow" placeholder={tr("Pega el enlace de un Google Sheet…")} value={url} onInput={e => setUrl(e.target.value)} onKeyDown={e => e.key === 'Enter' && add()} /><button class="btn" onClick={add}>{tr("Agregar proyecto")}</button></div></div>}
     {err && <div class="warn">{err}</div>}
-    <div class="box"><h3>{tr("Proyecto de demostración")}</h3><p class="hint">Datos de ejemplo guardados solo en esta computadora; no toca ningún Sheet.</p><button class="btn" onClick={() => onOpen('demo')}>{tr("Abrir demostración")}</button> <button class="btn" onClick={() => { localStorage.removeItem('demo-data-' + LANG); }}>{tr("Restablecer datos de demo")}</button></div>
+    <div class="box"><h3>{tr("Proyecto de demostración")}</h3><p class="hint">{tr("Datos de ejemplo guardados solo en esta computadora; no toca ningún Sheet.")}</p><button class="btn" onClick={() => onOpen('demo')}>{tr("Abrir demostración")}</button> <button class="btn" onClick={() => { localStorage.removeItem('demo-data-' + LANG); }}>{tr("Restablecer datos de demo")}</button></div>
+    {native && native.updateState && <HomeVersion />}
     {help && <Modal title={tr("Credencial de Google (una sola vez)")} onClose={() => setHelp(false)}><ol class="steps"><li>{tr("Entra a console.cloud.google.com y crea un proyecto.")}</li><li>{tr("En «APIs y servicios → Biblioteca» habilita")}{' '}<b>{tr("Google Sheets API")}</b> y <b>{tr("Google Drive API")}</b>.</li>
       <li>{tr("En «Pantalla de consentimiento de OAuth» elige tipo Externo, pon un nombre y tu correo, y luego publica la app («En producción») para que las sesiones no caduquen cada semana.")}</li>
       <li>{tr("En «Credenciales → Crear credenciales → ID de cliente de OAuth» elige")}{' '}<b>{tr("App de escritorio")}</b>.</li><li>{tr("Copia el ID de cliente y el secreto aquí. Tu equipo usa los mismos dos datos.")}</li></ol>
@@ -375,8 +428,9 @@ function App() {
     return () => clearInterval(iv);
   }, [cur, boot, user && user.email]);
   if (boot) return <div class="center">{tr("Cargando…")}</div>;
-  if (!cur || !st) return <Home user={user} setUser={setUser} projects={projects} setProjects={setProjects} onOpen={setCur} />;
-  return <Workspace key={cur} st={st} name={cur} onHome={() => setCur(null)} />;
+  const banner = native && native.updateState ? <UpdateBanner /> : null;
+  if (!cur || !st) return <>{banner}<Home user={user} setUser={setUser} projects={projects} setProjects={setProjects} onOpen={setCur} /></>;
+  return <>{banner}<Workspace key={cur} st={st} name={cur} onHome={() => setCur(null)} /></>;
 }
 document.addEventListener('contextmenu', e => { if (!e.target.closest('input, textarea, .prose, [contenteditable]')) e.preventDefault(); });
 render(<App />, document.getElementById('root'));

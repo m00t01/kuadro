@@ -113,15 +113,39 @@ function setupTray() {
 }
 function showMain() { if (!win || win.isDestroyed()) create(); else { if (win.isMinimized()) win.restore(); win.show(); win.focus(); } }
 
-// ---------- Actualizaciones automáticas (desde GitHub Releases) ----------
+// ---------- Actualizaciones (desde GitHub Releases) ----------
+// Windows: se descarga sola y se instala al cerrar o con "Reiniciar y actualizar".
+// macOS: la app no está firmada, así que solo se avisa y se abre la página de descarga.
+const RELEASES = 'https://github.com/m00t01/kuadro/releases/latest';
+let upd = { state: 'idle', current: app.getVersion() }, updater = null;
+const setUpd = p => { upd = { ...upd, ...p }; if (win && !win.isDestroyed()) win.webContents.send('update:state', upd); };
 function setupUpdates() {
-  if (!app.isPackaged || process.platform !== 'win32') return;
+  if (!app.isPackaged) { setUpd({ state: 'dev' }); return; }
   try {
-    const { autoUpdater } = require('electron-updater'); autoUpdater.autoDownload = true;
-    autoUpdater.on('update-downloaded', i => { if (Notification.isSupported()) new Notification({ title: L().upd(i.version), body: L().updb }).show(); });
-    autoUpdater.checkForUpdates().catch(() => { }); setInterval(() => autoUpdater.checkForUpdates().catch(() => { }), 6 * 3600 * 1000);
-  } catch { }
+    const { autoUpdater } = require('electron-updater'); updater = autoUpdater;
+    autoUpdater.autoDownload = process.platform === 'win32'; autoUpdater.autoInstallOnAppQuit = process.platform === 'win32';
+    autoUpdater.on('checking-for-update', () => setUpd({ state: 'checking', error: '' }));
+    autoUpdater.on('update-not-available', () => setUpd({ state: 'none', checkedAt: Date.now() }));
+    autoUpdater.on('update-available', i => setUpd({ state: process.platform === 'win32' ? 'downloading' : 'available', version: i.version, percent: 0, checkedAt: Date.now() }));
+    autoUpdater.on('download-progress', pr => setUpd({ state: 'downloading', percent: Math.round(pr.percent || 0) }));
+    autoUpdater.on('update-downloaded', i => { setUpd({ state: 'ready', version: i.version }); if (Notification.isSupported()) new Notification({ title: L().upd(i.version), body: L().updb }).show(); });
+    autoUpdater.on('error', e => setUpd({ state: 'error', error: String((e && e.message) || e).split('\n')[0].slice(0, 200), checkedAt: Date.now() }));
+    const check = () => { if (upd.state !== 'downloading' && upd.state !== 'ready') autoUpdater.checkForUpdates().catch(() => { }); };
+    check(); setInterval(check, 6 * 3600 * 1000);
+  } catch (e) { setUpd({ state: 'error', error: String(e.message || e) }); }
 }
+ipcMain.handle('update:get', () => upd);
+ipcMain.handle('update:check', async () => {
+  if (!updater) return upd;
+  if (upd.state === 'downloading' || upd.state === 'ready') return upd;
+  setUpd({ state: 'checking', error: '' });
+  try { await updater.checkForUpdates(); } catch (e) { setUpd({ state: 'error', error: String(e.message || e).split('\n')[0].slice(0, 200), checkedAt: Date.now() }); }
+  return upd;
+});
+ipcMain.handle('update:install', () => {
+  if (upd.state === 'ready' && updater) { quitting = true; setImmediate(() => updater.quitAndInstall(false, true)); return true; }
+  shell.openExternal(RELEASES); return false;
+});
 
 function create() {
   win = new BrowserWindow({ width: 1440, height: 900, minWidth: 980, minHeight: 620, backgroundColor: '#191919', title: 'Kuadro', icon: path.join(__dirname, 'dist', 'icon.png'), autoHideMenuBar: true, show: !process.argv.includes('--oculto'), webPreferences: { preload: path.join(__dirname, 'preload.cjs'), contextIsolation: true, nodeIntegration: false, spellcheck: true } });
