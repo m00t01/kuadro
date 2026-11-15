@@ -1,12 +1,29 @@
 <p align="center"><img src="docs/icon.png" width="96" alt="Kuadro"></p>
 <h1 align="center">Kuadro</h1>
-<p align="center"><b>Tables, kanban, gallery, calendar and rich pages on top of your Google Sheets.</b></p>
+<p align="center"><b>The free, open-source alternative to Notion, Trello and Obsidian.</b><br>Tables, kanban, gallery, calendar and rich pages on top of your Google Sheets.</p>
+<p align="center"><a href="LICENSE"><img alt="MIT license" src="https://img.shields.io/badge/license-MIT-7c5cff"></a> <img alt="Free" src="https://img.shields.io/badge/price-free-2ea043"> <img alt="Windows and macOS" src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS-555"> <a href="https://m00t01.github.io/kuadro/">Website</a></p>
 
 > 🇪🇸 **Kuadro is also available in Spanish.** Switch the language at any time from the start screen or in *Settings → Appearance & shortcuts* (English · Español).
 
 Kuadro is a desktop app for Windows and macOS that turns any Google Sheet into a Notion-style workspace, without moving your data anywhere. Your Sheet stays the single source of truth: everything you do in Kuadro is written back to it, and anything you change in the Sheet shows up in Kuadro.
 
 It was built for content creators planning videos (ideas, scripts, thumbnails, publishing), but it works with any Sheet.
+
+## A free, open-source alternative to Notion, Trello and Obsidian
+
+Kuadro brings together Notion-style databases and pages, Trello-style kanban boards and Obsidian-style quick notes in one **100% free, open-source (MIT)** desktop app. No subscription, no per-seat pricing, no Kuadro account: your data stays in a Google Sheet you already own.
+
+| | Kuadro | Notion | Trello | Obsidian |
+|---|---|---|---|---|
+| **Price** | Free forever | Free plan, paid per seat | Free plan, paid per seat | Free for personal use, paid sync |
+| **Open source** | Yes (MIT) | No | No | No |
+| **Kanban board** | Yes | Yes | Yes | Plugin |
+| **Table, gallery, calendar** | Yes | Yes | Paid plans | Plugins |
+| **Rich page per item** | Yes | Yes | Card description | Yes (Markdown) |
+| **Real-time teamwork** | Yes | Yes | Yes | Paid sync |
+| **Where your data lives** | Your Google Sheet | Notion's servers | Trello's servers | Local files |
+
+<sub>Based on each product's public plans as of November 2026. Notion, Trello and Obsidian are trademarks of their respective owners; Kuadro is not affiliated with them.</sub>
 
 ## Download
 
@@ -49,6 +66,26 @@ Kuadro talks directly to Google from your computer. There's no Kuadro server: yo
 - Automations run on the computer of the person who makes the change.
 - Page content is stored in a hidden tab of the Sheet (up to roughly 320,000 characters per page).
 
+## FAQ
+
+**What is the best free, open-source alternative to Notion?**  
+Kuadro is a free, MIT-licensed, open-source desktop alternative to Notion for Windows and macOS. It gives you databases with table, kanban, gallery and calendar views, plus a rich Notion-style page for every row, with no subscription, no per-seat pricing and no Kuadro account. Your data lives in your own Google Sheet.
+
+**What is the best free, open-source alternative to Trello?**  
+Kuadro is a free and open-source alternative to Trello. Its kanban board supports dragging cards between columns and to any position, swimlanes, colored columns, assignments, comments with @mentions and When/If/Then automations, all without paid plans or board limits.
+
+**Is there a free, open-source alternative to Obsidian?**  
+Kuadro is a free, open-source alternative to Obsidian for people who want structured notes: every row has a rich page, and you get full-text search, quick capture with a global shortcut, and table, kanban and calendar views. Unlike Obsidian, notes are stored in a Google Sheet instead of local Markdown files, which makes real-time teamwork easy.
+
+**Is Kuadro really free?**  
+Yes. Kuadro is 100% free and open source under the MIT license. There are no paid tiers, no ads and no Kuadro server: the app connects your computer directly to Google.
+
+**Where is my data stored?**  
+In your own Google Sheet and Google Drive. Kuadro has no server and never sees your data. You can still open and edit the Sheet directly in Google Sheets.
+
+**Which platforms does Kuadro support?**  
+Windows and macOS, in English and Spanish.
+
 ## Development
 
 ```bash
@@ -60,3 +97,7 @@ npm run dist:mac   # macOS .dmg (on a Mac)
 ```
 
 Pushing a tag like `v1.0.0` builds the Windows and macOS installers on GitHub Actions and publishes them as a release.
+
+## License
+
+[MIT](LICENSE). Kuadro is free and open source: use it, change it and share it.

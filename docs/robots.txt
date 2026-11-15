@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://m00t01.github.io/kuadro/sitemap.xml

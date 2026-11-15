@@ -1,0 +1,15 @@
+# Kuadro
+
+> Kuadro is a free, open-source (MIT) desktop app for Windows and macOS. It is an alternative to Notion, Trello and Obsidian that turns any Google Sheet into a workspace with table, kanban, gallery and calendar views and a rich page for every row. There is no subscription and no Kuadro server: data stays in the user's own Google Sheet.
+
+- Free, open-source Notion alternative: databases with multiple views, typed columns, rich pages, comments, roles and permissions.
+- Free, open-source Trello alternative: kanban with drag and drop, swimlanes, colored columns, assignments and When/If/Then automations.
+- Free, open-source Obsidian alternative for teams: rich notes, full-text search and a global quick-capture shortcut, stored in Google Sheets instead of local Markdown files.
+- Languages: English and Spanish.
+
+## Links
+
+- [Website](https://m00t01.github.io/kuadro/)
+- [Source code](https://github.com/m00t01/kuadro)
+- [Download](https://github.com/m00t01/kuadro/releases/latest)
+- [Privacy policy](https://m00t01.github.io/kuadro/privacy.html)
