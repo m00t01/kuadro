@@ -121,6 +121,15 @@ function HomeVersion() {
     : <a href="#" onClick={e => { e.preventDefault(); if (u.state !== 'dev') native.checkUpdates(); }}>{tr('Buscar actualizaciones')}</a>}
     {(u.state === 'none' || u.state === 'error' || u.state === 'dev') && <span> · {updText(u)}</span>}</div>;
 }
+// Campo en línea para nombrar o renombrar una pestaña (Enter guarda, Esc cancela).
+function TabNameInput({ initial = '', placeholder, onSave, onCancel }) {
+  const [v, setV] = useState(initial), ref = useRef(), busy = useRef(false), born = useRef(Date.now());
+  useEffect(() => { const go = () => { const el = ref.current; if (el) { el.focus(); el.select(); } }; go(); const t = setTimeout(go, 60); return () => clearTimeout(t); }, []);
+  const save = async () => { if (busy.current) return; busy.current = true; const ok = await onSave(v); busy.current = false; if (ok === false && ref.current) ref.current.focus(); };
+  return <input class="nav-in" ref={ref} value={v} placeholder={placeholder} maxLength={90} onInput={e => setV(e.target.value)}
+    onKeyDown={e => { e.stopPropagation(); if (e.key === 'Enter') { e.preventDefault(); if (v.trim()) save(); else onCancel(); } if (e.key === 'Escape') onCancel(); }}
+    onBlur={() => { if (busy.current) return; if (Date.now() - born.current < 400) { setTimeout(() => ref.current && ref.current.focus(), 0); return; } if (v.trim() && v.trim() !== initial) save(); else onCancel(); }} />;
+}
 // Color de fondo de una columna del kanban.
 const COLBG = ['', 'gray', 'brown', 'orange', 'yellow', 'green', 'blue', 'purple', 'pink', 'red'];
 const COLBG_NAME = { '': tr('Sin color'), gray: tr('Gris'), brown: tr('Café'), orange: tr('Naranja'), yellow: tr('Amarillo'), green: tr('Verde'), blue: tr('Azul'), purple: tr('Morado'), pink: tr('Rosa'), red: tr('Rojo') };
@@ -216,7 +225,7 @@ function Workspace({ st, name, onHome }) {
   const S = useStore(st), pk = 'ui:' + name + ':' + S.me.email; const saved0 = useMemo(() => LS.get(pk, {}), []);
   const [view, setView] = useState(saved0.view || 'table'), [tab, setTab] = useState(saved0.tab || '*'), [search, setSearch] = useState(''), [filters, setFilters] = useState([]), [sort, setSort] = useState({ col: '', dir: 1 }), [mine, setMine] = useState(false);
   const [prefs, setPrefsS] = useState(saved0.prefs || {}), setPrefs = p => setPrefsS(x => ({ ...x, ...p }));
-  const [menu, setMenu] = useState(null), [dropTab, setDropTab] = useState(null), [openId, setOpenId] = useState(null), [settings, setSettings] = useState(null), [colEdit, setColEdit] = useState(null), [addCol, setAddCol] = useState(null), [pal, setPal] = useState(false), [pq, setPq] = useState(''), [phi, setPhi] = useState(0), [fpop, setFpop] = useState(false), [tplAsk, setTplAsk] = useState(null), [views, setViews] = useState(saved0.views || []), [vname, setVname] = useState(null);
+  const [menu, setMenu] = useState(null), [dropTab, setDropTab] = useState(null), [openId, setOpenId] = useState(null), [settings, setSettings] = useState(null), [colEdit, setColEdit] = useState(null), [addCol, setAddCol] = useState(null), [pal, setPal] = useState(false), [pq, setPq] = useState(''), [phi, setPhi] = useState(0), [fpop, setFpop] = useState(false), [tplAsk, setTplAsk] = useState(null), [views, setViews] = useState(saved0.views || []), [vname, setVname] = useState(null), [newTab, setNewTab] = useState(null), [renTab, setRenTab] = useState(null);
   const [sel, setSel] = useState(new Set()), [colsPop, setColsPop] = useState(false), [inbox, setInbox] = useState(false), [seen, setSeen] = useState(LS.get('seen:' + pk, Date.now() - 864e5 * 3));
   const fref = useRef(), cref = useRef();
   useEffect(() => { LS.set(pk, { view, tab, views, prefs }); }, [view, tab, views, prefs]);
@@ -316,12 +325,17 @@ function Workspace({ st, name, onHome }) {
   const allProps = [...new Set(S.order.flatMap(t => S.tabs[t].header))].filter(h => h && h !== 'ID' && h !== s.titleCol && !st.hiddenCols().includes(h));
   const cardProps = view === 'gallery' ? (prefs.galleryProps || (s.groupCol ? [s.groupCol] : [])) : (prefs.cardProps || ['__img', ...defaultCardProps(st, [s.groupCol])]);
   const setCardProps = v => setPrefs(view === 'gallery' ? { galleryProps: v } : { cardProps: v });
+  const doAddTab = async v => { const like = newTab && newTab.like ? newTab.like : cur !== '*' ? cur : undefined; if (st.tabNameError(v.trim())) { st.toast(st.tabNameError(v.trim()), 'error'); return false; } setNewTab(null); const n = await st.addTab(v, like); if (n) setTab(n); return true; };
+  const doRename = async (old, v) => { v = v.trim(); if (!v || v === old) { setRenTab(null); return true; } const e = st.tabNameError(v, old); if (e) { st.toast(e, 'error'); return false; } setRenTab(null); const n = await st.renameTab(old, v); if (n && n !== old) { if (tab === old) setTab(n); setViews(views.map(x => x.tab === old ? { ...x, tab: n } : x)); } return true; };
   return <div class="app"><aside class="sidebar"><div class="proj click" onClick={onHome} title={tr("Cambiar de proyecto")}><span class="logo-row"><img src="icon.png" alt="" class="logo" /><span class="sm muted">Kuadro</span></span><b>{S.title || name}</b><span class="muted sm">{tr("Cambiar de proyecto")}</span></div>
     <button class={'nav' + (inbox ? ' on' : '')} onClick={() => setInbox(!inbox)}>🔔 {tr('Bandeja')}{unread > 0 ? <span class="badge">{unread}</span> : <span />}</button>
     <div class="nav-h">{tr("Pestañas")}</div><button class={'nav' + (cur === '*' ? ' on' : '')} onClick={() => setTab('*')}>{tr("Todos")}<span>{st.allRows().length}</span></button>
-    {tabs.map(t => <button class={'nav' + (cur === t ? ' on' : '') + (dropTab === t ? ' drop' : '')} onClick={() => setTab(t)}
+    {tabs.map(t => renTab && renTab.tab === t ? <TabNameInput key={'r' + t} initial={t} onCancel={() => setRenTab(null)} onSave={v => doRename(t, v)} />
+      : <button class={'nav' + (cur === t ? ' on' : '') + (dropTab === t ? ' drop' : '')} onClick={() => setTab(t)} onDblClick={() => st.can('manageTabs') && setRenTab({ tab: t })}
+      onContextMenu={e => { e.preventDefault(); setMenu({ x: e.clientX, y: e.clientY, title: t, items: [{ label: tr('Abrir'), onClick: () => setTab(t) }, st.can('manageTabs') && { label: tr('Renombrar pestaña'), hint: tr('Doble clic'), onClick: () => setRenTab({ tab: t }) }, st.can('manageTabs') && { label: tr('Nueva pestaña con estas columnas'), onClick: () => setNewTab({ like: t }) }] }); }}
       onDragOver={e => { if (st.can('moveTabs') && e.dataTransfer.types.includes('text/plain')) { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; if (dropTab !== t) setDropTab(t); } }} onDragLeave={() => setDropTab(null)}
       onDrop={e => { e.preventDefault(); setDropTab(null); const [from, id] = e.dataTransfer.getData('text/plain').split('|'); if (id && from !== t) { st.moveRow(from, id, t); if (openId && openId.id === id) setOpenId({ tab: t, id }); } }}>{t}<span>{S.tabs[t].rows.length}</span></button>)}
+    {newTab !== null ? <TabNameInput placeholder={tr("Nombre de la pestaña…")} onCancel={() => setNewTab(null)} onSave={doAddTab} /> : st.can('manageTabs') && <button class="nav muted" onClick={() => setNewTab('')}>{tr("+ Nueva pestaña")}</button>}
     <div class="nav-h">{tr("Vistas guardadas")}</div>{views.map(v => <button class="nav" onClick={() => applyView(v)}>{v.name}<span class="x" title={tr("Quitar")} onClick={e => { e.stopPropagation(); setViews(views.filter(x => x !== v)); }}>✕</span></button>)}
     {vname === null ? <button class="nav muted" onClick={() => setVname('')}>{tr("+ Guardar vista actual")}</button> : <input class="nav-in" ref={af} placeholder={tr("Nombre de la vista…")} value={vname} onInput={e => setVname(e.target.value)} onBlur={() => setVname(null)} onKeyDown={e => { if (e.key === 'Enter' && vname.trim()) { setViews([...views, { name: vname.trim(), view, tab: cur, search, filters, sort, mine, prefs }]); setVname(null); } if (e.key === 'Escape') setVname(null); }} />}
     <span class="sp" /><button class="nav" onClick={() => { setPal(true); setPq(''); }}>{tr("Buscar")}<span>Ctrl K</span></button><button class="nav" onClick={() => setSettings('general')}>{tr("Ajustes")}</button>

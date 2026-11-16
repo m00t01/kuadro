@@ -16,7 +16,7 @@ export const TYPES = { text: tr('Texto'), number: tr('Número'), select: tr('Sel
 export const PERMS = [
   ['openPages', tr('Abrir páginas')], ['editPages', tr('Editar el contenido de las páginas')], ['editCells', tr('Editar celdas')],
   ['addRows', tr('Agregar filas')], ['deleteRows', tr('Eliminar filas')], ['moveCards', tr('Mover tarjetas')], ['moveTabs', tr('Mover elementos entre pestañas')], ['addCards', tr('Agregar tarjetas')],
-  ['manageColumns', tr('Agregar, renombrar y eliminar columnas')], ['manageOptions', tr('Editar opciones de los desplegables')],
+  ['manageColumns', tr('Agregar, renombrar y eliminar columnas')], ['manageTabs', tr('Crear y renombrar pestañas')], ['manageOptions', tr('Editar opciones de los desplegables')],
   ['comment', tr('Comentar')], ['upload', tr('Subir imágenes')], ['viewHistory', tr('Ver historial')], ['undo', tr('Deshacer cambios')],
   ['admin', tr('Administrar roles, usuarios y ajustes')],
 ];
@@ -365,6 +365,46 @@ export function createStore(api, me, opts = {}) {
       await saveConfigNow(); await reload();
     });
   }
+  // Pestañas: crear una nueva (con las mismas columnas que una existente) y renombrar.
+  const tabNameError = (name, except) => {
+    if (!name) return tr('Escribe un nombre para la pestaña.');
+    if (name.length > 90) return tr('El nombre es demasiado largo.');
+    if (/^_app_/i.test(name)) return tr('Ese nombre está reservado.');
+    if (S.meta && S.meta.sheets.some(x => x.title.toLowerCase() === name.toLowerCase() && x.title !== except)) return tr('Ya existe una pestaña con ese nombre.');
+    if (S.order.some(t => t.toLowerCase() === name.toLowerCase() && t !== except)) return tr('Ya existe una pestaña con ese nombre.');
+    return '';
+  };
+  function addTab(name, like) {
+    name = String(name || '').trim(); if (!can('manageTabs')) return Promise.resolve(null);
+    const err = tabNameError(name); if (err) { toast(err, 'error'); return Promise.resolve(null); }
+    return enqueue(async () => {
+      await flushFirst();
+      const meta = await api.meta(); S.meta = meta;
+      if (meta.sheets.some(x => x.title.toLowerCase() === name.toLowerCase())) { toast(tr('Ya existe una pestaña con ese nombre.'), 'error'); return null; }
+      const src = S.tabs[like] ? like : S.order.find(t => S.tabs[t].idCol >= 0);
+      let header = src ? S.tabs[src].header.filter(Boolean) : [];
+      if (!header.includes('ID')) header = [...header, 'ID'];
+      const title0 = S.config.settings.titleCol; if (title0 && !header.includes(title0)) header = [title0, ...header];
+      await api.batchUpdate([{ addSheet: { properties: { title: name, gridProperties: { rowCount: 1000, columnCount: Math.max(header.length, 5), frozenRowCount: 1 } } } }]);
+      await api.batchUpdateValues([{ range: `${q(name)}!A1`, values: [header] }], 'RAW');
+      S.meta = await api.meta(); await reload(); toast(tr('Pestaña «{t}» creada', { t: name }));
+      return name;
+    });
+  }
+  function renameTab(old, neu) {
+    neu = String(neu || '').trim(); if (!can('manageTabs') || !S.tabs[old] || neu === old) return Promise.resolve(old);
+    const err = tabNameError(neu, old); if (err) { toast(err, 'error'); return Promise.resolve(null); }
+    return enqueue(async () => {
+      await flushFirst();
+      await api.batchUpdate([{ updateSheetProperties: { properties: { sheetId: S.tabs[old].sheetId, title: neu }, fields: 'title' } }]);
+      const c = S.config, sw = x => x === old ? neu : x;
+      const fix = p => { if (p && Array.isArray(p.hiddenTabs)) p.hiddenTabs = p.hiddenTabs.map(sw); };
+      c.roles.forEach(r => fix(r.perms)); c.users.forEach(u => fix(u.overrides));
+      (c.automations || []).forEach(a => { if (a.when && a.when.tab === old) a.when.tab = neu; (a.conds || []).forEach(k => { if (k.op === 'tab' && k.val === old) k.val = neu; }); (a.actions || []).forEach(x => { if (x.type === 'move' && x.tab === old) x.tab = neu; }); });
+      await saveConfigNow(); S.meta = await api.meta(); await reload(); toast(tr('Pestaña renombrada a «{t}»', { t: neu }));
+      return neu;
+    });
+  }
   // Renombra una opción de desplegable en la configuración y en todas las celdas que la usan.
   function renameOption(col, old, neu) {
     neu = neu.trim(); const sc = S.config.schema[col]; if (!sc || !neu || neu === old) return;
@@ -601,5 +641,5 @@ export function createStore(api, me, opts = {}) {
     return true;
   }
   const searchPages = (qy, rows) => { const k = norm(qy); if (k.length < 2) return []; const out = []; for (const r of rows) { const md = S.pages[r.id]?.md; if (!md) continue; const i = norm(md).indexOf(k); if (i >= 0) out.push({ row: r, snippet: md.replace(/[#*>`\[\]-]/g, ' ').replace(/\s+/g, ' ').slice(Math.max(0, i - 30), i + 70) }); } return out; };
-  return { runAutomations, todayISO, autoFill, setMany, undoLast, redoLast, setPageMeta, setPresence, editComment, deleteComment, searchPages, S, subscribe: f => { subs.add(f); return () => subs.delete(f); }, emit, toast, init, refresh, prepare, can, canEditCol, hiddenCols, hiddenTabs, type, myName, perms, setCell, resolveConflict, addRow, deleteRow, moveRow, reorder, undo, addColumn, renameColumn, deleteColumn, renameOption, saveConfig, savePage, addComment, allRows, duplicates, idle, api };
+  return { runAutomations, todayISO, autoFill, setMany, undoLast, redoLast, setPageMeta, setPresence, editComment, deleteComment, searchPages, S, subscribe: f => { subs.add(f); return () => subs.delete(f); }, emit, toast, init, refresh, prepare, can, canEditCol, hiddenCols, hiddenTabs, type, myName, perms, setCell, resolveConflict, addRow, deleteRow, moveRow, reorder, undo, addColumn, renameColumn, deleteColumn, addTab, renameTab, tabNameError, renameOption, saveConfig, savePage, addComment, allRows, duplicates, idle, api };
 }

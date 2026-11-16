@@ -1,0 +1,33 @@
+// Tabs in the sidebar: "+ New tab" below the list, right-click → Rename tab, double-click to rename.
+import puppeteer from 'puppeteer-core';
+const b = await puppeteer.launch({ executablePath: '/usr/bin/google-chrome', headless: 'new', args: ['--no-sandbox', '--allow-file-access-from-files'] });
+const p = await b.newPage(); await p.setViewport({ width: 1400, height: 860 });
+const errs = []; p.on('pageerror', e => errs.push(e.message));
+const wait = ms => new Promise(r => setTimeout(r, ms)), out = [], ok = (n, v) => out.push((v ? 'ok   ' : 'FAIL ') + n);
+const navs = () => p.evaluate(() => [...document.querySelectorAll('.sidebar .nav')].map(b => b.childNodes[0]?.textContent?.trim()));
+const sheets = () => p.evaluate(() => JSON.parse(localStorage.getItem('demo-data-en')).sheets.map(s => s.title));
+await p.goto('file:///home/claude/kuadro/dist/index.html'); await p.evaluate(() => localStorage.clear()); await p.reload(); await wait(400);
+await p.evaluate(() => [...document.querySelectorAll('button')].find(b => b.textContent.startsWith('Open demo')).click()); await wait(1800);
+ok('"+ New tab" button below tabs', await p.evaluate(() => { const n = [...document.querySelectorAll('.sidebar .nav')]; const i = n.findIndex(b => b.textContent.includes('+ New tab')), j = n.findIndex(b => b.textContent.includes('Shorts')); return i > j && j >= 0; }));
+await p.evaluate(() => [...document.querySelectorAll('.sidebar .nav')].find(b => b.textContent.includes('+ New tab')).click()); await wait(150);
+await p.keyboard.type('Shorts 3D'); await p.keyboard.press('Enter'); await wait(900);
+ok('tab created in Sheet', (await sheets()).includes('Shorts 3D'));
+ok('tab shown and selected', await p.evaluate(() => [...document.querySelectorAll('.sidebar .nav.on')].some(b => b.textContent.startsWith('Shorts 3D'))));
+await p.screenshot({ path: '/tmp/shots/tabs-new.png', captureBeyondViewport: false });
+const el = await p.evaluateHandle(() => [...document.querySelectorAll('.sidebar .nav')].find(b => b.textContent.startsWith('Myths')));
+const box = await el.boundingBox(); await p.mouse.click(box.x + 30, box.y + 10, { button: 'right' }); await wait(200);
+ok('context menu has Rename tab', await p.evaluate(() => !!document.querySelector('.ctx') && document.querySelector('.ctx').textContent.includes('Rename tab')));
+await p.screenshot({ path: '/tmp/shots/tabs-menu.png', captureBeyondViewport: false });
+await p.evaluate(() => [...document.querySelectorAll('.ctx-i')].find(i => i.textContent.startsWith('Rename tab')).click()); await wait(150);
+await p.keyboard.down('Control'); await p.keyboard.press('a'); await p.keyboard.up('Control'); await p.keyboard.type('Legends'); await p.keyboard.press('Enter'); await wait(900);
+const s1 = await sheets(); ok('renamed in Sheet', s1.includes('Legends') && !s1.includes('Myths'));
+ok('renamed in sidebar', (await navs()).includes('Legends'));
+// Duplicate name is rejected and the field stays open.
+const el2 = await p.evaluateHandle(() => [...document.querySelectorAll('.sidebar .nav')].find(b => b.textContent.startsWith('Legends')));
+const b2 = await el2.boundingBox(); await p.mouse.click(b2.x + 30, b2.y + 10, { count: 2 }); await wait(150);
+await p.keyboard.down('Control'); await p.keyboard.press('a'); await p.keyboard.up('Control'); await p.keyboard.type('shorts 3d'); await p.keyboard.press('Enter'); await wait(300);
+ok('duplicate rejected', !(await sheets()).includes('shorts 3d') && await p.evaluate(() => document.body.innerText.includes('A tab with that name already exists')));
+await p.keyboard.press('Escape'); await wait(150);
+ok('escape cancels', (await navs()).includes('Legends'));
+await p.screenshot({ path: '/tmp/shots/tabs-done.png', captureBeyondViewport: false });
+console.log(out.join('\n')); console.log('errors:', errs); await b.close();

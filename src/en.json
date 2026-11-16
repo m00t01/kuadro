@@ -559,5 +559,18 @@
 "Reiniciar y actualizar a {v}": "Restart and update to {v}",
 "Al cerrar la ventana, mantener Kuadro en la bandeja (para que el atajo siga funcionando)": "When closing the window, keep Kuadro in the tray (so the shortcut keeps working)",
 "Abrir Kuadro al iniciar la computadora (minimizado)": "Open Kuadro when the computer starts (minimized)",
-"Datos de ejemplo guardados solo en esta computadora; no toca ningún Sheet.": "Sample data stored only on this computer; it doesn't touch any Sheet."
+"Datos de ejemplo guardados solo en esta computadora; no toca ningún Sheet.": "Sample data stored only on this computer; it doesn't touch any Sheet.",
+"Crear y renombrar pestañas": "Create and rename tabs",
+"Escribe un nombre para la pestaña.": "Type a name for the tab.",
+"El nombre es demasiado largo.": "That name is too long.",
+"Ese nombre está reservado.": "That name is reserved.",
+"Ya existe una pestaña con ese nombre.": "A tab with that name already exists.",
+"Pestaña «{t}» creada": "Tab “{t}” created",
+"Pestaña renombrada a «{t}»": "Tab renamed to “{t}”",
+"Nueva pestaña": "New tab",
+"Renombrar pestaña": "Rename tab",
+"Doble clic": "Double-click",
+"Nueva pestaña con estas columnas": "New tab with these columns",
+"Nombre de la pestaña…": "Tab name…",
+"+ Nueva pestaña": "+ New tab"
 }

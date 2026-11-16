@@ -218,3 +218,28 @@ test('automatizaciones: ejemplos sembrados, reglas propias, condiciones y avisos
   const r3 = S.tabs.MITOS.rows[3]; S.tabs.MITOS.rows[3].v['Canal'] = 'Lime!'; st.setCell('MITOS', r3.id, 'Estado', 'Descartado'); await st.idle();
   assert.ok(api.sheet('MITOS').rows.some(x => x[17] === r3.id), 'la condición evitó moverlo');
 });
+
+test('pestañas: crear con las mismas columnas, renombrar y actualizar referencias', async () => {
+  const { api, st, S } = await ready();
+  const other = S.order.find(t => t !== 'ROBLOX');
+  S.config.roles[0].perms.hiddenTabs = ['ROBLOX'];
+  S.config.automations = [{ id: 'a1', name: 'mover', enabled: true, when: { type: 'move', tab: 'ROBLOX' }, conds: [{ op: 'tab', val: 'ROBLOX' }], actions: [{ type: 'move', tab: 'ROBLOX' }] }];
+  await st.saveConfig();
+  // Nombres inválidos o repetidos no hacen nada.
+  assert.equal(await st.addTab('roblox'), null); assert.equal(await st.addTab('_app_x'), null); assert.equal(await st.addTab('   '), null);
+  const n = await st.addTab('SHORTS 3D', 'ROBLOX'); assert.equal(n, 'SHORTS 3D');
+  assert.ok(S.order.includes('SHORTS 3D')); assert.deepEqual(api.sheet('SHORTS 3D').rows[0], S.tabs.ROBLOX.header.filter(Boolean));
+  assert.equal(S.tabs['SHORTS 3D'].rows.length, 0); assert.ok(S.tabs['SHORTS 3D'].idCol >= 0);
+  await st.addRow('SHORTS 3D', { 'Título del Video': 'Primera idea' }); await st.idle();
+  assert.equal(S.tabs['SHORTS 3D'].rows.length, 1);
+  // Renombrar.
+  assert.equal(await st.renameTab('ROBLOX', other), null);
+  assert.equal(await st.renameTab('ROBLOX', 'ROBLOX PRINCIPAL'), 'ROBLOX PRINCIPAL');
+  assert.ok(!S.tabs.ROBLOX); assert.equal(S.tabs['ROBLOX PRINCIPAL'].rows.length, 65); assert.ok(api.sheet('ROBLOX PRINCIPAL'));
+  assert.deepEqual(S.config.roles[0].perms.hiddenTabs, ['ROBLOX PRINCIPAL']);
+  const a = S.config.automations[0]; assert.deepEqual([a.when.tab, a.conds[0].val, a.actions[0].tab], ['ROBLOX PRINCIPAL', 'ROBLOX PRINCIPAL', 'ROBLOX PRINCIPAL']);
+  // La configuración guardada también cambió.
+  const { S: S2 } = await boot(ME, api.d); assert.equal(S2.config.automations[0].when.tab, 'ROBLOX PRINCIPAL'); assert.ok(S2.order.includes('SHORTS 3D'));
+  // Sin permiso no se puede.
+  const { st: st3 } = await boot({ email: 'otro@example.com', name: 'Otro' }, api.d); assert.equal(st3.can('manageTabs'), false); assert.equal(await st3.addTab('X'), null);
+});
