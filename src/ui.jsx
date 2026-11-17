@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'preact/hooks';
+import { createPortal } from 'preact/compat';
 import { TYPES, COLORS, pickColor } from './store.js';
 import { urls, imgSrc, fmtDate } from './util.js';
 import { t as tr } from './i18n.js';
@@ -22,10 +23,14 @@ export function Pop({ anchor, onClose, children, width = 250 }) {
   const css = Object.fromEntries(Object.entries(style).map(([k, v]) => [k, typeof v === 'number' ? v + 'px' : v]));
   return <div ref={ref} class="pop" style={css} onClick={e => e.stopPropagation()} onKeyDown={e => e.stopPropagation()} onCopy={e => e.stopPropagation()} onPaste={e => e.stopPropagation()}>{children}</div>;
 }
+// Las ventanas se dibujan al final del documento (no dentro de otra ventana) y Esc cierra solo la de más arriba.
+const modalStack = [];
 export function Modal({ title, onClose, children, wide, cls }) {
-  useEffect(() => { const k = e => { if (e.key === 'Escape') onClose(); }; document.addEventListener('keydown', k); return () => document.removeEventListener('keydown', k); }, []);
-  return <div class="overlay" onMouseDown={e => { if (e.target === e.currentTarget) onClose(); }}><div class={'modal' + (wide ? ' wide' : '') + (cls ? ' ' + cls : '')}><div class="modal-h"><b>{title}</b><button class="icon" onClick={onClose} aria-label={tr("Cerrar")}>✕</button></div><div class="modal-b">{children}</div></div></div>;
+  const me = useRef({}), close = useRef(onClose); close.current = onClose;
+  useEffect(() => { modalStack.push(me.current); const k = e => { if (e.key === 'Escape' && modalStack[modalStack.length - 1] === me.current) { e.stopPropagation(); close.current(); } }; document.addEventListener('keydown', k); return () => { document.removeEventListener('keydown', k); const i = modalStack.indexOf(me.current); if (i >= 0) modalStack.splice(i, 1); }; }, []);
+  return createPortal(<div class="overlay" onMouseDown={e => { if (e.target === e.currentTarget) onClose(); }}><div class={'modal' + (wide ? ' wide' : '') + (cls ? ' ' + cls : '')}><div class="modal-h"><b>{title}</b><button class="icon" onClick={onClose} aria-label={tr("Cerrar")}>✕</button></div><div class="modal-b">{children}</div></div></div>, document.body);
 }
+
 
 export const optionsOf = (st, col) => { const sc = st.S.config.schema[col] || {}; return sc.type === 'person' ? st.S.config.users.filter(u => !sc.roleId || u.roleId === sc.roleId).map(u => ({ v: u.name, color: 'blue' })) : (sc.options || []); };
 export const colorOf = (st, col, v) => (optionsOf(st, col).find(o => o.v === v) || {}).color || 'gray';
@@ -89,7 +94,7 @@ export function Field({ st, row, col, big, table, active, signal, onDone, guard,
   return <div class={'cellbtn txt' + (ed ? ' ed' : '')} onClick={() => canClickNow() && start()}>{v !== '' && v != null ? String(v) : <span class="ph">{big && ed ? tr('Vacío') : ''}</span>}</div>;
 }
 
-export function ColumnEditor({ st, col, onClose }) {
+export function ColumnEditor({ st, col, onClose, inline }) {
   const S = st.S, sc = S.config.schema[col] || (S.config.schema[col] = { type: 'text' });
   const [name, setName] = useState(col), [nu, setNu] = useState(''), [, tick] = useState(0); const re = () => tick(x => x + 1);
   const hasOpts = sc.type === 'select' || sc.type === 'multi';
@@ -100,7 +105,7 @@ export function ColumnEditor({ st, col, onClose }) {
   };
   const addOpt = () => { const v = nu.trim(); if (!v || (sc.options || []).some(o => o.v === v)) return; sc.options = [...(sc.options || []), { v, color: pickColor(v, (sc.options || []).length) }]; setNu(''); st.saveConfig(); };
   const canCols = st.can('manageColumns'), canOpts = st.can('manageOptions');
-  return <Modal title={tr('Columna:') + ' ' + col} onClose={onClose}>
+  const body = <>
     <label class="f">{tr("Nombre")}<input value={name} disabled={!canCols} onInput={e => setName(e.target.value)} onBlur={() => { if (name.trim() && name !== col) { st.renameColumn(col, name); onClose(); } }} /></label>
     <label class="f">{tr("Tipo")}<select value={sc.type} disabled={!canCols} onChange={e => setType(e.target.value)}>{Object.entries(TYPES).map(([k, l]) => <option value={k}>{l}</option>)}</select></label>
     {sc.type === 'person' && <label class="f">{tr("Solo personas con el rol")}<select value={sc.roleId || ''} disabled={!canCols} onChange={e => { sc.roleId = e.target.value; st.saveConfig(); re(); }}><option value="">{tr("Cualquiera")}</option>{S.config.roles.map(r => <option value={r.id}>{r.name}</option>)}</select></label>}
@@ -115,7 +120,8 @@ export function ColumnEditor({ st, col, onClose }) {
       {canOpts && <div class="optrow"><input placeholder={tr("Nueva opción…")} value={nu} onInput={e => setNu(e.target.value)} onKeyDown={e => e.key === 'Enter' && addOpt()} /><button class="btn" onClick={addOpt}>{tr("Agregar")}</button></div>}
       <p class="hint">{tr("Renombrar una opción la cambia también en todas las filas que la usan. Quitarla no borra el valor de las celdas.")}</p></div>}
     {canCols && <div class="row-end"><button class="btn danger" onClick={() => { if (confirm(tr('¿Eliminar la columna «{x}» y todos sus datos del Sheet?', { x: col }))) { st.deleteColumn(col); onClose(); } }}>{tr("Eliminar columna")}</button></div>}
-  </Modal>;
+  </>;
+  return inline ? <div class="inline-panel"><div class="ip-h"><button class="mini" onClick={onClose}>{tr('← Volver')}</button><b>{tr('Columna:') + ' ' + col}</b></div><div class="col-inline">{body}</div></div> : <Modal title={tr('Columna:') + ' ' + col} onClose={onClose}>{body}</Modal>;
 }
 
 export { RichEditor } from './editor.jsx';

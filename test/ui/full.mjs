@@ -117,11 +117,11 @@ await step('automatizacion', async () => {
   await click('.nav', 'Settings'); await wait(300); await click('.set nav button', 'Automations'); await wait(200);
   ok('automatizaciones de ejemplo', await p.evaluate(() => document.querySelectorAll('.auto-i').length === 2));
   await click('.btn', '＋ Create from scratch'); await wait(300);
-  await p.evaluate(() => { const ed = document.querySelectorAll('.modal')[1]; const sels = ed.querySelectorAll('.ablock')[0].querySelectorAll('select'); sels[2].value = 'Recording'; sels[2].dispatchEvent(new Event('change', { bubbles: true })); }); await wait(100);
+  await p.evaluate(() => { const ed = document.querySelector('.autoed').parentElement; const sels = ed.querySelectorAll('.ablock')[0].querySelectorAll('select'); sels[2].value = 'Recording'; sels[2].dispatchEvent(new Event('change', { bubbles: true })); }); await wait(100);
   await click('.modal .mini', '＋ Action'); await wait(100);
-  await p.evaluate(() => { const ed = document.querySelectorAll('.modal')[1]; const blk = ed.querySelectorAll('.ablock')[2]; const s = blk.querySelectorAll('select'); s[1].value = 'Script ready'; s[1].dispatchEvent(new Event('change', { bubbles: true })); }); await wait(100);
-  await p.evaluate(() => { const ed = document.querySelectorAll('.modal')[1]; const blk = ed.querySelectorAll('.ablock')[2]; const s = blk.querySelectorAll('select'); s[2].value = 'true'; s[2].dispatchEvent(new Event('change', { bubbles: true })); }); await wait(100);
-  const sentence = await p.evaluate(() => document.querySelectorAll('.modal')[1].querySelector('.info').textContent); ok('frase de la regla: ' + sentence, /When “Status” changes to “Recording”, then set “Script ready” to “true”/.test(sentence));
+  await p.evaluate(() => { const ed = document.querySelector('.autoed').parentElement; const blk = ed.querySelectorAll('.ablock')[2]; const s = blk.querySelectorAll('select'); s[1].value = 'Script ready'; s[1].dispatchEvent(new Event('change', { bubbles: true })); }); await wait(100);
+  await p.evaluate(() => { const ed = document.querySelector('.autoed').parentElement; const blk = ed.querySelectorAll('.ablock')[2]; const s = blk.querySelectorAll('select'); s[2].value = 'true'; s[2].dispatchEvent(new Event('change', { bubbles: true })); }); await wait(100);
+  const sentence = await p.evaluate(() => document.querySelector('.autoed').parentElement.querySelector('.info').textContent); ok('frase de la regla: ' + sentence, /When “Status” changes to “Recording”, then set “Script ready” to “true”/.test(sentence));
   await shot('auto-editor'); await click('.modal .btn.primary', 'Save'); await wait(400);
   await click('.modal-h .icon', '✕'); await wait(200);
   await p.click('.grid tbody tr:nth-child(10) td[data-col="Status"]'); await p.keyboard.press('Enter'); await wait(200); await click('.pop .pop-i', 'Recording'); await wait(600);

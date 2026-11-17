@@ -47,7 +47,7 @@ export const describe = (st, a) => {
   return C ? tr('Cuando {w}, si {c}, entonces {a}.', { w: W, c: C, a: A || '…' }) : tr('Cuando {w}, entonces {a}.', { w: W, a: A || '…' });
 };
 
-export function AutomationEditor({ st, initial, onSave, onClose }) {
+export function AutomationEditor({ st, initial, onSave, onClose, inline }) {
   const S = st.S, [a, setA] = useState(() => JSON.parse(JSON.stringify(initial || { id: newId(), name: '', enabled: true, when: { type: 'change', col: S.config.settings.groupCol || '', to: '*any' }, conds: [], actions: [] })));
   const up = p => setA({ ...a, ...p }), names = [...new Set(S.order.flatMap(t => S.tabs[t].header))].filter(h => h && h !== 'ID' && h !== st.folderCol() && h !== st.colorCol()), editable = names.filter(n => st.type(n) !== 'auto');
   const people = names.filter(n => st.type(n) === 'person'), dates = names.filter(n => st.type(n) === 'date'), folders = folderNames(st), lists = st.checklists();
@@ -57,7 +57,8 @@ export function AutomationEditor({ st, initial, onSave, onClose }) {
   const valid = a.actions.length && a.actions.every(need) && (w.type !== 'change' || w.col) && (w.type !== 'date' || w.col);
   const condKind = c => ['tab', 'folder', 'color', 'chk'].includes(c.op) ? '__' + c.op : c.col;
   const pickCondCol = (i, v) => v === '__tab' ? setC(i, { op: 'tab', col: '', val: S.order[0] }) : v === '__folder' ? setC(i, { op: 'folder', col: '', val: folders[0] || '*any' }) : v === '__color' ? setC(i, { op: 'color', col: '', val: 'red' }) : v === '__chk' ? setC(i, { op: 'chk', col: '', val: 'done' }) : setC(i, { col: v, op: st.type(v) === 'date' ? 'past' : 'is', val: '' });
-  return <Modal title={initial && initial.id && (S.config.automations || []).some(x => x.id === initial.id) ? tr('Editar automatización') : tr('Nueva automatización')} onClose={onClose} wide><div class="autoed">
+  const title = initial && initial.id && (S.config.automations || []).some(x => x.id === initial.id) ? tr('Editar automatización') : tr('Nueva automatización');
+  const body = <div class="autoed">
     <label class="f">{tr("Nombre")}<input value={a.name} placeholder={tr("Ej. Fecha al publicar")} onInput={e => up({ name: e.target.value })} /></label>
     <div class="ablock"><div class="akw">{tr("CUANDO")}</div><div class="arow">
       <select value={w.type} onChange={e => setW({ type: e.target.value, ...(e.target.value === 'date' ? { col: dates[0] || '', dir: 'before', n: 1 } : {}) })}>{Object.entries(WHEN).map(([k, l]) => <option value={k}>{tr(l)}</option>)}</select>
@@ -102,7 +103,8 @@ export function AutomationEditor({ st, initial, onSave, onClose }) {
     <div class="info">{describe(st, a)}</div>
     <p class="hint">{tr("Las automatizaciones se ejecutan en la computadora de quien hace el cambio. Los avisos llegan a la bandeja 🔔 y como notificación de escritorio.")}</p>
     <div class="row-end"><button class="btn" onClick={onClose}>{tr("Cancelar")}</button><button class="btn primary" disabled={!valid} onClick={() => onSave({ ...a, name: a.name.trim() || describe(st, a).slice(0, 48) })}>{tr("Guardar")}</button></div>
-  </div></Modal>;
+  </div>;
+  return inline ? <div class="inline-panel"><div class="ip-h"><button class="mini" onClick={onClose}>{tr('← Volver')}</button><b>{title}</b></div>{body}</div> : <Modal title={title} onClose={onClose} wide>{body}</Modal>;
 }
 
 // Plantillas pensadas para creadores de contenido; cada una se arma con las columnas de este proyecto y solo aparece si tiene sentido.
@@ -154,18 +156,19 @@ export function templates(st) {
 
 export function AutomationList({ st }) {
   const S = st.S, list = S.config.automations || [], [ed, setEd] = useState(null), [gal, setGal] = useState(false), [q, setQ] = useState(''), save = () => st.saveConfig();
-  const put = a => { const i = list.findIndex(x => x.id === a.id); S.config.automations = i >= 0 ? list.map(x => x.id === a.id ? a : x) : [...list, a]; save(); setEd(null); };
+  const put = a => { const i = list.findIndex(x => x.id === a.id); S.config.automations = i >= 0 ? list.map(x => x.id === a.id ? a : x) : [...list, a]; save(); setEd(null); setGal(false); setQ(''); };
   const nz = x => String(x || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, ''), words = nz(q).split(/\s+/).filter(Boolean);
   const all = gal ? templates(st) : [], tpls = all.filter(t => words.every(w => nz(t.name + ' ' + t.desc).includes(w))), CATS = { org: tr('Organización'), dates: tr('Fechas'), chk: tr('Checklists'), team: tr('Equipo') };
+  // Editor y plantillas se muestran aquí mismo, en el panel de Ajustes, en lugar de abrir otra ventana encima.
+  if (ed) return <AutomationEditor st={st} inline initial={ed === 'new' ? null : ed} onSave={put} onClose={() => setEd(null)} />;
+  if (gal) return <div class="inline-panel"><div class="ip-h"><button class="mini" onClick={() => { setGal(false); setQ(''); }}>{tr('← Volver')}</button><b>{tr("Plantillas de automatización")}</b></div><div class="tpl-gal">
+      <input class="tpl-q" ref={e => e && !e.dataset.f && (e.dataset.f = 1, e.focus())} placeholder={tr("Buscar plantillas… (ej. publicar, miniatura, Short, fecha)")} value={q} onInput={e => setQ(e.target.value)} onKeyDown={e => { if (e.key === 'Escape') { e.stopPropagation(); if (q) setQ(''); else setGal(false); } }} />
+      <p class="hint">{tr("Pensadas para creadores de contenido y armadas con las columnas de tu proyecto. Al elegir una puedes revisarla y ajustarla antes de guardarla.")}</p>
+      {Object.entries(CATS).map(([k, l]) => { const xs = tpls.filter(t => t.cat === k); return xs.length ? <div><div class="ctx-t">{l}</div>{xs.map(t => { const used = list.some(a => a.tpl === t.key); return <div class="tpl-i"><div class="grow"><b>{t.name}</b><div class="muted sm">{t.desc}</div></div>
+        <button class={'mini' + (used ? '' : ' primary')} onClick={() => setEd({ ...t.build(), tpl: t.key })}>{used ? tr('Agregar otra vez') : tr('Usar')}</button></div>; })}</div> : null; })}
+      {!tpls.length && <p class="muted">{all.length ? tr("Ninguna plantilla coincide con «{q}».", { q }) : tr("No hay plantillas que encajen con las columnas de este proyecto todavía.")}</p>}</div></div>;
   return <div>{list.map(a => <div class="auto-i"><label class="switch" title={a.enabled !== false ? tr('Activa') : tr('Pausada')}><input type="checkbox" checked={a.enabled !== false} onChange={e => { a.enabled = e.target.checked; save(); }} /><span /></label>
     <div class="grow"><b>⚡ {a.name}</b><div class="muted sm">{describe(st, a)}</div></div><button class="mini" onClick={() => setEd(a)}>{tr("Editar")}</button><button class="icon" title={tr("Eliminar")} onClick={() => { if (confirm(tr('¿Eliminar esta automatización?'))) { S.config.automations = list.filter(x => x !== a); save(); } }}>✕</button></div>)}
     {!list.length && <p class="muted">{tr("Aún no hay automatizaciones.")}</p>}
-    <div class="lrow0"><button class="btn primary" onClick={() => setGal(true)}>{tr("✨ Agregar desde plantilla")}</button><button class="btn" onClick={() => setEd('new')}>{tr("＋ Crear desde cero")}</button></div>
-    {gal && <Modal title={tr("Plantillas de automatización")} onClose={() => { setGal(false); setQ(''); }} wide><div class="tpl-gal">
-      <input class="tpl-q" autoFocus placeholder={tr("Buscar plantillas… (ej. publicar, miniatura, Short, fecha)")} value={q} onInput={e => setQ(e.target.value)} onKeyDown={e => e.key === 'Escape' && q && (e.stopPropagation(), setQ(''))} />
-      <p class="hint">{tr("Pensadas para creadores de contenido y armadas con las columnas de tu proyecto. Al elegir una puedes revisarla y ajustarla antes de guardarla.")}</p>
-      {Object.entries(CATS).map(([k, l]) => { const xs = tpls.filter(t => t.cat === k); return xs.length ? <div><div class="ctx-t">{l}</div>{xs.map(t => { const used = list.some(a => a.tpl === t.key); return <div class="tpl-i"><div class="grow"><b>{t.name}</b><div class="muted sm">{t.desc}</div></div>
-        <button class={'mini' + (used ? '' : ' primary')} onClick={() => { setGal(false); setEd({ ...t.build(), tpl: t.key }); }}>{used ? tr('Agregar otra vez') : tr('Usar')}</button></div>; })}</div> : null; })}
-      {!tpls.length && <p class="muted">{all.length ? tr("Ninguna plantilla coincide con «{q}».", { q }) : tr("No hay plantillas que encajen con las columnas de este proyecto todavía.")}</p>}</div></Modal>}
-    {ed && <AutomationEditor st={st} initial={ed === 'new' ? null : ed} onSave={put} onClose={() => setEd(null)} />}</div>;
+    <div class="lrow0"><button class="btn primary" onClick={() => setGal(true)}>{tr("✨ Agregar desde plantilla")}</button><button class="btn" onClick={() => setEd('new')}>{tr("＋ Crear desde cero")}</button></div></div>;
 }

@@ -311,21 +311,22 @@ function Settings({ st, onClose, onCol, onAddCol, start }) {
     ['look', tr('Apariencia y atajos'), true, 'brush', 'y', 'tema fondo colores idioma atajo bandeja actualizaciones fechas avisos theme background language shortcut tray updates alerts'],
     ['hist', tr('Historial'), st.can('viewHistory'), 'clock', 'h', 'historial restaurar deshacer eliminado history restore undo deleted'],
   ].filter(x => x[2]);
-  const [sq, setSq] = useState(''), nq = norm(sq.trim()), shown = nq ? secs.filter(x => nq.split(/\s+/).every(w => norm(x[1] + ' ' + x[5]).includes(w))) : secs;
+  const [colOpen, setColOpen] = useState(null), [sq, setSq] = useState(''), nq = norm(sq.trim()), shown = nq ? secs.filter(x => nq.split(/\s+/).every(w => norm(x[1] + ' ' + x[5]).includes(w))) : secs;
   const GROUPS = { p: tr('Proyecto'), t: tr('Equipo'), a: tr('Automatización'), y: tr('Para ti'), h: '' };
   const role = c.roles.find(r => r.id === rid), sel = (k, label, types) => <label class="f">{label}<select value={c.settings[k]} onChange={e => { c.settings[k] = e.target.value; save(); }}><option value="">{tr("(ninguna)")}</option>{names.filter(n => !types || types.includes(st.type(n))).map(n => <option>{n}</option>)}</select></label>;
   const tpl = c.templates[tid];
   const cur0 = secs.find(x => x[0] === sec) || secs[0];
   return <Modal title={tr("Ajustes del proyecto")} onClose={onClose} wide cls="settings"><div class="set"><nav>
       <input class="set-q" placeholder={tr("Buscar")} value={sq} onInput={e => setSq(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && shown[0]) setSec(shown[0][0]); if (e.key === 'Escape' && sq) { e.stopPropagation(); setSq(''); } }} />
-      {shown.map((x, i) => [i > 0 && x[4] !== shown[i - 1][4] && <hr />, <button class={sec === x[0] ? 'on' : ''} onClick={() => setSec(x[0])}><SI n={x[3]} />{x[1]}</button>])}
+      {shown.map((x, i) => [i > 0 && x[4] !== shown[i - 1][4] && <hr />, <button class={sec === x[0] ? 'on' : ''} onClick={() => { setSec(x[0]); setColOpen(null); }}><SI n={x[3]} />{x[1]}</button>])}
       {!shown.length && <p class="muted sm" style={{ padding: '6px 10px' }}>{tr("Sin resultados.")}</p>}</nav><div class="set-b"><h3 class="set-t">{cur0 ? cur0[1] : ''}</h3>
     {sec === 'general' && <div>{sel('titleCol', tr('Columna de título (la que se abre como página)'))}{sel('groupCol', tr('Columna que agrupa el kanban'), ['select', 'person'])}{sel('dateCol', tr('Columna de fecha del calendario'), ['date'])}{sel('imageCol', tr('Columna de imagen de la galería'), ['image', 'url'])}
       <label class="f">{tr("Rol para quien no está en la lista de usuarios")}<select value={c.defaultRoleId} onChange={e => { c.defaultRoleId = e.target.value; save(); }}>{c.roles.map(r => <option value={r.id}>{r.name}</option>)}</select></label>
       <p class="hint">{tr('Dueño del proyecto:')} {c.owner}. {tr('El dueño siempre tiene todos los permisos.')}</p></div>}
     {sec === 'yt' && <YTSettings st={st} />}
     {sec === 'chk' && <ChecklistSettings st={st} />}
-    {sec === 'cols' && <div>{names.map(n => <div class="lrow click" onClick={() => onCol(n)}><span class="tyi">{ICON[st.type(n)]}</span><b>{n}</b><span class="muted">{TYPES[st.type(n)]}{(c.schema[n]?.options || []).length ? ` · ${c.schema[n].options.length} opciones` : ''}</span></div>)}
+    {sec === 'cols' && colOpen && <ColumnEditor st={st} col={colOpen} inline onClose={() => setColOpen(null)} />}
+    {sec === 'cols' && !colOpen && <div>{names.map(n => <div class="lrow click" onClick={() => setColOpen(n)}><span class="tyi">{ICON[st.type(n)]}</span><b>{n}</b><span class="muted">{TYPES[st.type(n)]}{(c.schema[n]?.options || []).length ? ` · ${c.schema[n].options.length} opciones` : ''}</span></div>)}
       {st.can('manageColumns') && <button class="btn" onClick={onAddCol}>{tr("+ Agregar columna")}</button>}</div>}
     {sec === 'roles' && <div class="two"><div class="side">{c.roles.map(r => <button class={r.id === rid ? 'on' : ''} onClick={() => setRid(r.id)}>{r.name}</button>)}
       <button onClick={() => { const r = { id: newId(), name: tr('Nuevo rol'), perms: { openPages: true } }; c.roles.push(r); setRid(r.id); save(); }}>{tr("+ Nuevo rol")}</button></div>
