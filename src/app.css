@@ -297,3 +297,14 @@ body.light .grid tr.fhead td{background:#f4f3f0}
 .grid tr.fhead.pin td.num{left:0;z-index:4}.fh-pin{font-size:11px;opacity:.7}
 body.light .grid tr.fhead.pin td{background:#f4f3f0}
 .grid tr.drop-before td{box-shadow:inset 0 2px 0 var(--acc)}.grid tr.drop-after td{box-shadow:inset 0 -2px 0 var(--acc)}
+/* Color de fila */
+.grid tr.rc-red td{background-image:linear-gradient(rgba(229,72,77,.13),rgba(229,72,77,.13))}.grid tr.rc-red td.num{box-shadow:inset 3px 0 0 #e5484d}
+.grid tr.rc-orange td{background-image:linear-gradient(rgba(240,140,46,.13),rgba(240,140,46,.13))}.grid tr.rc-orange td.num{box-shadow:inset 3px 0 0 #f08c2e}
+.grid tr.rc-yellow td{background-image:linear-gradient(rgba(232,196,25,.13),rgba(232,196,25,.13))}.grid tr.rc-yellow td.num{box-shadow:inset 3px 0 0 #e8c419}
+.grid tr.rc-green td{background-image:linear-gradient(rgba(48,164,108,.13),rgba(48,164,108,.13))}.grid tr.rc-green td.num{box-shadow:inset 3px 0 0 #30a46c}
+.grid tr.rc-blue td{background-image:linear-gradient(rgba(62,142,247,.13),rgba(62,142,247,.13))}.grid tr.rc-blue td.num{box-shadow:inset 3px 0 0 #3e8ef7}
+.grid tr.rc-purple td{background-image:linear-gradient(rgba(142,78,198,.13),rgba(142,78,198,.13))}.grid tr.rc-purple td.num{box-shadow:inset 3px 0 0 #8e4ec6}
+.grid tr.rc-pink td{background-image:linear-gradient(rgba(233,61,130,.13),rgba(233,61,130,.13))}.grid tr.rc-pink td.num{box-shadow:inset 3px 0 0 #e93d82}
+.grid tr.rc-gray td{background-image:linear-gradient(rgba(139,141,152,.13),rgba(139,141,152,.13))}.grid tr.rc-gray td.num{box-shadow:inset 3px 0 0 #8b8d98}
+.fh-dot{width:10px;height:10px;border-radius:50%;flex:none}
+.grid .sticky.fzlast{box-shadow:1px 0 0 var(--line2)}

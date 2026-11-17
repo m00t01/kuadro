@@ -687,5 +687,16 @@
 "Probar clave": "Test key",
 "La clave se guarda en la configuración del proyecto (en una pestaña oculta de tu Sheet), así que la usan todos en tu equipo. Quien tenga acceso de edición al Sheet podría verla; si te preocupa, en Google Cloud puedes limitarla solo a «YouTube Data API v3».": "The key is saved in the project settings (in a hidden tab of your Sheet), so everyone on your team uses it. Anyone with edit access to the Sheet could see it; if that worries you, you can restrict it to “YouTube Data API v3” only in Google Cloud.",
 "Clic: seleccionar · Ctrl/Shift: varias · arrastra para reacomodar, o suéltala en una pestaña o carpeta": "Click: select · Ctrl/Shift: several · drag to reorder, or drop it on a tab or folder",
-"Para reacomodar arrastrando, quita el orden (Sin ordenar).": "To reorder by dragging, turn sorting off (Unsorted)."
+"Para reacomodar arrastrando, quita el orden (Sin ordenar).": "To reorder by dragging, turn sorting off (Unsorted).",
+"Color": "Color",
+"Color de fila": "Row color",
+"Quitar agrupación": "Remove grouping",
+"Agrupar por esta columna": "Group by this column",
+"Quitar columnas fijas": "Unfreeze columns",
+"Fijar columnas hasta aquí": "Freeze columns up to here",
+"al desplazar de lado": "when scrolling sideways",
+"Agrupar por": "Group by",
+"(sin agrupar)": "(no grouping)",
+"Quitar columnas fijas (hasta «{c}»)": "Unfreeze columns (up to “{c}”)",
+"No tienes permiso para editar.": "You don't have permission to edit."
 }

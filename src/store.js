@@ -465,6 +465,28 @@ export function createStore(api, me, opts = {}) {
     if (fc && S.tabs[tab]) S.tabs[tab].rows.forEach(r => { const n = String(r.v[fc] || '').trim(); if (n && !defs.some(d => d.name === n)) defs.push({ id: 'auto:' + n, name: n, tab }); });
     return defs;
   }
+  // Columna de sistema (Carpeta, Color…): se crea en la pestaña si falta y se recuerda su nombre en la configuración.
+  async function ensureSysCol(tab, key, base) {
+    let c = S.config.settings[key];
+    if (!c) { c = base; if (S.order.some(t => S.tabs[t].header.includes(c)) && !(S.config.schema[c] || {}).sys) c = base + ' (Kuadro)'; S.config.settings[key] = c; }
+    if (!S.config.schema[c]) S.config.schema[c] = { type: 'text', options: [], sys: key };
+    const [h] = await heads([tab]);
+    if (!h.includes(c)) {
+      const meta = await api.meta(), sm = meta.sheets.find(x => x.title === tab), at = h.length;
+      if (at >= sm.columnCount) await api.batchUpdate([{ appendDimension: { sheetId: sm.sheetId, dimension: 'COLUMNS', length: 1 } }]);
+      await api.batchUpdateValues([{ range: `${q(tab)}!${colL(at)}1`, values: [[c]] }], 'RAW');
+    }
+    await saveConfigNow(); S.tabs[tab] = await fresh(tab); applyOpt();
+    return c;
+  }
+  // Color de fila: se guarda en la columna «Color» del Sheet (red, orange, yellow, green, blue, purple, pink, gray).
+  const colorCol = () => S.config.settings.colorCol || '';
+  async function setRowColor(items, color) {
+    if (!can('editCells')) { toast(tr('No tienes permiso para editar.'), 'error'); return; }
+    const tabs = [...new Set(items.map(x => x.tab))];
+    for (const t of tabs) if (!colorCol() || !S.tabs[t].header.includes(colorCol())) await enqueue(async () => { await flushFirst(); await ensureSysCol(t, 'colorCol', tr('Color')); });
+    const cc = colorCol(); await setMany(items.filter(x => S.tabs[x.tab] && S.tabs[x.tab].rows.some(r => r.id === x.id)).map(x => ({ tab: x.tab, id: x.id, col: cc, val: color || '' })), { system: true });
+  }
   async function ensureFolderCol(tab) {
     let fc = folderCol();
     if (!fc) { fc = tr('Carpeta'); if (S.order.some(t => S.tabs[t].header.includes(fc)) && !(S.config.schema[fc] || {}).folder) fc = tr('Carpeta') + ' (Kuadro)'; S.config.settings.folderCol = fc; }
@@ -780,5 +802,5 @@ export function createStore(api, me, opts = {}) {
     return true;
   }
   const searchPages = (qy, rows) => { const k = norm(qy); if (k.length < 2) return []; const out = []; for (const r of rows) { const md = S.pages[r.id]?.md; if (!md) continue; const i = norm(md).indexOf(k); if (i >= 0) out.push({ row: r, snippet: md.replace(/[#*>`\[\]-]/g, ' ').replace(/\s+/g, ' ').slice(Math.max(0, i - 30), i + 70) }); } return out; };
-  return { runAutomations, todayISO, autoFill, setMany, undoLast, redoLast, setPageMeta, setPresence, editComment, deleteComment, searchPages, S, subscribe: f => { subs.add(f); return () => subs.delete(f); }, emit, toast, init, refresh, prepare, can, canEditCol, hiddenCols, hiddenTabs, type, myName, perms, setCell, resolveConflict, addRow, deleteRow, moveRow, reorder, undo, addColumn, renameColumn, deleteColumn, addTab, renameTab, tabNameError, deleteTab, restoreTab, canRestoreTab, undoable, folderCol, foldersOf, addFolder, dropRow, moveToFolder, renameFolder, deleteFolder, syncGroups, folderNameError, renameOption, saveConfig, savePage, addComment, allRows, duplicates, idle, api };
+  return { runAutomations, todayISO, autoFill, setMany, undoLast, redoLast, setPageMeta, setPresence, editComment, deleteComment, searchPages, S, subscribe: f => { subs.add(f); return () => subs.delete(f); }, emit, toast, init, refresh, prepare, can, canEditCol, hiddenCols, hiddenTabs, type, myName, perms, setCell, resolveConflict, addRow, deleteRow, moveRow, reorder, undo, addColumn, renameColumn, deleteColumn, addTab, renameTab, tabNameError, deleteTab, restoreTab, canRestoreTab, undoable, folderCol, foldersOf, addFolder, dropRow, colorCol, setRowColor, ensureSysCol, moveToFolder, renameFolder, deleteFolder, syncGroups, folderNameError, renameOption, saveConfig, savePage, addComment, allRows, duplicates, idle, api };
 }

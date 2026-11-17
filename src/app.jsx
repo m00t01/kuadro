@@ -181,6 +181,11 @@ function YTSettings({ st }) {
     <p class="hint">{tr("La clave se guarda en la configuración del proyecto (en una pestaña oculta de tu Sheet), así que la usan todos en tu equipo. Quien tenga acceso de edición al Sheet podría verla; si te preocupa, en Google Cloud puedes limitarla solo a «YouTube Data API v3».")}</p>
   </div>;
 }
+// Colores de fila (clave guardada en el Sheet → color).
+const ROWC = {
+  red: { hex: '#e5484d', label: () => tr('Rojo') }, orange: { hex: '#f08c2e', label: () => tr('Naranja') }, yellow: { hex: '#e8c419', label: () => tr('Amarillo') }, green: { hex: '#30a46c', label: () => tr('Verde') },
+  blue: { hex: '#3e8ef7', label: () => tr('Azul') }, purple: { hex: '#8e4ec6', label: () => tr('Morado') }, pink: { hex: '#e93d82', label: () => tr('Rosa') }, gray: { hex: '#8b8d98', label: () => tr('Gris') },
+};
 // Color de fondo de una columna del kanban.
 const COLBG = ['', 'gray', 'brown', 'orange', 'yellow', 'green', 'blue', 'purple', 'pink', 'red'];
 const COLBG_NAME = { '': tr('Sin color'), gray: tr('Gris'), brown: tr('Café'), orange: tr('Naranja'), yellow: tr('Amarillo'), green: tr('Verde'), blue: tr('Azul'), purple: tr('Morado'), pink: tr('Rosa'), red: tr('Rojo') };
@@ -299,7 +304,7 @@ function Workspace({ st, name, onHome }) {
   if (S.status === 'error') return <div class="center"><p>{tr("No se pudo abrir el proyecto.")}</p><p class="muted">{S.error}</p>{S.authExpired && <button class="btn primary" onClick={() => st.ui.relogin()}>{tr("Volver a iniciar sesión con Google")}</button>}<button class="btn" onClick={onHome}>{tr("Volver")}</button></div>;
   const tabs = S.order.filter(t => !st.hiddenTabs().includes(t)), cur = tab !== '*' && tabs.includes(tab) ? tab : '*', s = S.config.settings, name_ = st.myName();
   const people = [...new Set(S.order.flatMap(t => S.tabs[t].header.filter(h => st.type(h) === 'person')))];
-  const baseCols = [...new Set((cur === '*' ? tabs : [cur]).flatMap(t => S.tabs[t].header))].filter(h => h && h !== 'ID' && h !== st.folderCol() && !st.hiddenCols().includes(h));
+  const baseCols = [...new Set((cur === '*' ? tabs : [cur]).flatMap(t => S.tabs[t].header))].filter(h => h && h !== 'ID' && h !== st.folderCol() && h !== st.colorCol() && !st.hiddenCols().includes(h));
   const ordered = [s.titleCol, ...baseCols.filter(c => c !== s.titleCol)].filter(c => baseCols.includes(c));
   const po = (prefs.order || []).filter(c => ordered.includes(c)); const tableCols = [...po, ...ordered.filter(c => !po.includes(c))].filter(c => !(prefs.hidden || []).includes(c));
   let rows = st.allRows(cur === '*' ? null : cur).filter(r => (!search || Object.values(r.v).some(x => String(x).toLowerCase().includes(search.toLowerCase())) || norm((S.pages[r.id] || {}).md || '').includes(norm(search))) && (!mine || (people.some(c => r.v[c] === name_) && !DONE.test(r.v[s.groupCol] || ''))) && filters.every(f => match(r, f)));
@@ -311,7 +316,19 @@ function Workspace({ st, name, onHome }) {
   // Carpetas: las filas de cada carpeta se muestran juntas, debajo de su encabezado, en la posición de su primera fila.
   const fc = st.folderCol(), folded = new Set(prefs.folded || []);
   let fold = null;
-  if (view === 'table') {
+  const gcol = view === 'table' && prefs.groupBy && (st.S.tabs[cur === '*' ? tabs[0] : cur] || {}).header && [...new Set((cur === '*' ? tabs : [cur]).flatMap(t => S.tabs[t].header))].includes(prefs.groupBy) ? prefs.groupBy : null;
+  if (gcol) {
+    // Agrupar por columna: un encabezado por valor (orden de las opciones, luego el resto, vacío al final).
+    const gval = r => { const v = String(r.v[gcol] ?? '').trim(); return st.type(gcol) === 'multi' ? (v.split(',')[0] || '').trim() : st.type(gcol) === 'checkbox' ? (v === 'true' ? '✓' : '') : v; };
+    const opts = optionsOf(st, gcol), present = [...new Set(rows.map(gval))];
+    const order = [...opts.map(o => o.v).filter(v => present.includes(v)), ...present.filter(v => v && !opts.some(o => o.v === v)).sort((a, b) => a.localeCompare(b)), ...(present.includes('') ? [''] : [])];
+    const gfold = new Set(prefs.gfolded || []), out = [], heads = [], info = new Map();
+    for (const v of order) { const k = 'g|' + gcol + '|' + v, members = rows.filter(r => gval(r) === v), closed = gfold.has(k), o = opts.find(x => x.v === v);
+      heads.push({ key: k, name: v, group: true, col: gcol, color: o ? o.color || 'gray' : null, count: members.length, closed, at: out.length });
+      if (!closed) members.forEach((m, i) => { out.push(m); info.set(m.id, { key: k, first: i === 0, last: i === members.length - 1 }); }); }
+    rows = out; fold = { heads, info, group: true };
+  }
+  if (view === 'table' && !gcol) {
     const defs = (cur === '*' ? tabs : [cur]).flatMap(t => st.foldersOf(t));
     if (defs.length) {
       const keyOf = r => { const n = fc ? String(r.v[fc] || '').trim() : ''; return n ? r.tab + '|' + n : null; };
@@ -348,6 +365,7 @@ function Workspace({ st, name, onHome }) {
       ok && s.groupCol && T.header.includes(s.groupCol) && (st.canEditCol(s.groupCol) || st.can('moveCards')) && { label: tr('Cambiar ') + s.groupCol.toLowerCase(), sub: sel_(s.groupCol, r) },
       ...pcols.filter(c => ok && st.canEditCol(c)).map(c => ({ label: tr('Asignar ') + c.toLowerCase(), sub: [...optionsOf(st, c).map(o => ({ label: o.v, check: r.v[c] === o.v, onClick: () => st.setCell(r.tab, r.id, c, o.v) })), ...(r.v[c] ? [{ label: tr('Quitar asignación'), onClick: () => st.setCell(r.tab, r.id, c, '') }] : [])] })),
       ok && st.can('moveTabs') && others.length && { label: tr('Mover a pestaña'), sub: others.map(t => ({ label: t, onClick: () => st.moveRow(r.tab, r.id, t) })) },
+      ok && st.can('editCells') && { label: tr('Color de fila'), sub: colorItems([{ tab: r.tab, id: r.id }], cc ? r.v[cc] : '') },
       ok && st.can('moveCards') && view === 'table' && { label: tr('Mover a carpeta'), sub: folderItems(r.tab, [r.id], st.folderCol() ? String(r.v[st.folderCol()] || '') : '') },
       ok && st.can('moveCards') && !sort.col && sameTab.length && { label: list && !ctxTable ? tr('Subir al inicio de la columna') : tr('Subir al inicio'), onClick: () => st.reorder(r.tab, r.id, sameTab[0].id, false) },
       ok && st.can('moveCards') && !sort.col && sameTab.length && { label: list && !ctxTable ? tr('Bajar al final de la columna') : tr('Bajar al final'), onClick: () => st.reorder(r.tab, r.id, sameTab[sameTab.length - 1].id, true) },
@@ -371,6 +389,9 @@ function Workspace({ st, name, onHome }) {
     sort.col && { label: tr('Quitar orden'), onClick: () => setSort({ col: '', dir: 1 }) },
     { label: tr('Filtrar por esta columna'), onClick: () => { setFilters([...filters, { col, op: optionsOf(st, col).length ? 'is' : 'has', val: '' }]); setFpop(true); } },
     col !== s.titleCol && { label: tr('Ocultar en esta vista'), onClick: () => setPrefs({ hidden: [...(prefs.hidden || []), col] }) },
+    view === 'table' && (prefs.groupBy === col ? { label: tr('Quitar agrupación'), onClick: () => setPrefs({ groupBy: '' }) } : { label: tr('Agrupar por esta columna'), onClick: () => setPrefs({ groupBy: col }) }),
+    view === 'table' && (prefs.freezeTo === col ? { label: tr('Quitar columnas fijas'), onClick: () => setPrefs({ freezeTo: '' }) } : { label: tr('Fijar columnas hasta aquí'), hint: tr('al desplazar de lado'), onClick: () => setPrefs({ freezeTo: col }) }),
+    view === 'table' && prefs.freezeTo && prefs.freezeTo !== col && { label: tr('Quitar columnas fijas'), onClick: () => setPrefs({ freezeTo: '' }) },
     { label: tr('Alto de filas'), sub: rowHItems() },
     (prefs.widths || {})[col] && { label: tr('Restablecer ancho'), onClick: () => { const w = { ...prefs.widths }; delete w[col]; setPrefs({ widths: w }); } },
     'sep',
@@ -388,13 +409,20 @@ function Workspace({ st, name, onHome }) {
       st.can('manageOptions') && { label: tr('Quitar color a todas las columnas'), onClick: () => { optionsOf(st, s.groupCol).forEach(o => { o.colBg = ''; }); st.saveConfig(); } },
     ] }); };
   const [askFolder, setAskFolder] = [folderAsk, setFolderAsk];
-  const toggleFold = k => setPrefs({ folded: folded.has(k) ? [...folded].filter(x => x !== k) : [...folded, k] });
+  const gfolded = new Set(prefs.gfolded || []);
+  const toggleFold = k => k.startsWith('g|') ? setPrefs({ gfolded: gfolded.has(k) ? [...gfolded].filter(x => x !== k) : [...gfolded, k] }) : setPrefs({ folded: folded.has(k) ? [...folded].filter(x => x !== k) : [...folded, k] });
   const folderItems = (tab, ids, curName) => { const fs = st.foldersOf(tab); return [...fs.map(f => ({ label: '📁 ' + f.name, check: curName === f.name, onClick: () => { if (curName !== f.name) st.moveToFolder(tab, ids, f.name); setSel(new Set()); } })), fs.length && 'sep', { label: tr('Nueva carpeta…'), onClick: () => setAskFolder({ tab, ids, name: '' }) }, curName !== undefined && curName !== null && curName !== '' && { label: tr('Sacar de la carpeta'), onClick: () => { st.moveToFolder(tab, ids, ''); setSel(new Set()); } }].filter(Boolean); };
   const pinned = new Set(prefs.pinFolders || []);
   const folderOps = { toggle: toggleFold, can: st.can('moveCards'), isPinned: k => pinned.has(k), newFolder: view === 'table' ? () => setAskFolder({ tab: cur === '*' ? tabs[0] : cur, ids: [], name: '' }) : null,
-    drop: (h, from, id) => { if (from !== h.tab) { st.toast(tr('Solo puedes meter en esta carpeta filas de la pestaña «{t}».', { t: h.tab }), 'error'); return; } st.moveToFolder(h.tab, [id], h.name); },
+    drop: (h, from, id) => { if (h.group) { if (!st.canEditCol(h.col)) return; const r = st.allRows().find(x => x.id === id); if (r && S.tabs[r.tab].header.includes(h.col)) st.setCell(r.tab, id, h.col, st.type(h.col) === 'checkbox' ? h.name === '✓' : h.name, { move: h.col === s.groupCol }); return; } if (from !== h.tab) { st.toast(tr('Solo puedes meter en esta carpeta filas de la pestaña «{t}».', { t: h.tab }), 'error'); return; } st.moveToFolder(h.tab, [id], h.name); },
     rename: (h, v) => st.renameFolder(h.tab, h.name, v).then(n => { if (n && n !== h.name) { const nk = h.tab + '|' + n; if (folded.has(h.key)) setPrefs({ folded: [...folded].filter(x => x !== h.key).concat(nk) }); } return n; }),
     menu: (e, h, startRename) => { e.preventDefault(); e.stopPropagation(); const keys = (fold ? fold.heads : []).map(x => x.key);
+      if (h.group) { setMenu({ x: e.clientX, y: e.clientY, title: (h.name || tr('(vacío)')) + ' · ' + h.col, items: [
+        { label: h.closed ? tr('Expandir') : tr('Colapsar'), onClick: () => toggleFold(h.key) },
+        { label: tr('Fijar nombre al desplazar'), check: pinned.has(h.key), onClick: () => setPrefs({ pinFolders: pinned.has(h.key) ? [...pinned].filter(k => k !== h.key) : [...pinned, h.key] }) }, 'sep',
+        { label: tr('Colapsar todas'), onClick: () => setPrefs({ gfolded: [...new Set([...gfolded, ...keys])] }) },
+        { label: tr('Expandir todas'), onClick: () => setPrefs({ gfolded: [...gfolded].filter(k => !keys.includes(k)) }) }, 'sep',
+        { label: tr('Quitar agrupación'), onClick: () => setPrefs({ groupBy: '' }) }] }); return; }
       setMenu({ x: e.clientX, y: e.clientY, title: '📁 ' + h.name, items: [
         { label: h.closed ? tr('Expandir') : tr('Colapsar'), onClick: () => toggleFold(h.key) },
         { label: tr('Fijar nombre al desplazar'), hint: tr('solo esta carpeta'), check: pinned.has(h.key), onClick: () => setPrefs({ pinFolders: pinned.has(h.key) ? [...pinned].filter(k => k !== h.key) : [...pinned, h.key] }) },
@@ -407,7 +435,10 @@ function Workspace({ st, name, onHome }) {
         st.can('moveCards') && 'sep',
         st.can('moveCards') && { label: tr('Eliminar carpeta'), hint: tr('las filas se quedan'), danger: true, onClick: () => { if (confirm(tr('¿Eliminar la carpeta «{n}»?\n\nSus {c} filas NO se borran: se quedan en la pestaña, fuera de la carpeta.', { n: h.name, c: h.count }))) st.deleteFolder(h.tab, h.name); } },
       ] }); } };
+  const cc = st.colorCol(), rowColorOf = cc ? r => ROWC[r.v[cc]] ? r.v[cc] : '' : null;
+  const colorItems = (items, curC) => [...Object.keys(ROWC).map(k => ({ label: ROWC[k].label(), dot: k, check: curC === k, onClick: () => { st.setRowColor(items, k); setSel(new Set()); } })), 'sep', { label: tr('Sin color'), onClick: () => { st.setRowColor(items, ''); setSel(new Set()); } }];
   const onRowDrop = (d, target, after) => {
+    if (gcol) { const h = fold.heads.find(x => x.key === (fold.info.get(target.id) || {}).key); if (h) folderOps.drop(h, d.tab, d.id); if (h && !sort.col && d.tab === target.tab) st.reorder(target.tab, d.id, target.id, after); return; }
     if (sort.col) { st.toast(tr('Para reacomodar arrastrando, quita el orden (Sin ordenar).'), 'error'); return; }
     if (d.tab !== target.tab) { if (st.can('moveTabs')) st.moveRow(d.tab, d.id, target.tab); return; }
     const info = fold && fold.info.get(target.id), name = info ? info.key.slice(target.tab.length + 1) : '';
@@ -426,6 +457,7 @@ function Workspace({ st, name, onHome }) {
       clear && { label: tr('Vaciar celdas'), hint: tr('Supr'), onClick: clear },
       'sep',
       ...optCols.map(c => ({ label: tr('Cambiar «{c}» en todas', { c }), sub: valuesOf(c, setAll) })),
+      st.can('editCells') && n > 0 && { label: tr('Color de fila'), sub: colorItems(list.map(r => ({ tab: r.tab, id: r.id })), null) },
       st.can('moveCards') && view === 'table' && new Set(list.map(r => r.tab)).size === 1 && n > 0 && { label: tr('Mover a carpeta'), sub: folderItems(list[0].tab, ids, (() => { const f = st.folderCol(); const v = new Set(list.map(r => f ? String(r.v[f] || '') : '')); return v.size === 1 ? [...v][0] : null; })()) },
       st.can('moveTabs') && { label: tr('Mover a pestaña'), sub: tabs.filter(t => S.tabs[t].idCol >= 0).map(t => ({ label: t, onClick: () => { list.forEach(r => r.tab !== t && st.moveRow(r.tab, r.id, t)); setSel(new Set()); } })) },
       'sep',
@@ -450,7 +482,7 @@ function Workspace({ st, name, onHome }) {
     setMenu({ x: at.x, y: Math.max(8, at.y - 32 * Math.min(10, items.length)), title: tr('{n} elementos', { n: list.length }), items });
   };
   const P = { st, rows, open, onNew, dups, onMenu, prefs, setPrefs, icons, presence: S.presence };
-  const allProps = [...new Set(S.order.flatMap(t => S.tabs[t].header))].filter(h => h && h !== 'ID' && h !== s.titleCol && h !== st.folderCol() && !st.hiddenCols().includes(h));
+  const allProps = [...new Set(S.order.flatMap(t => S.tabs[t].header))].filter(h => h && h !== 'ID' && h !== s.titleCol && h !== st.folderCol() && h !== st.colorCol() && !st.hiddenCols().includes(h));
   const cardProps = view === 'gallery' ? (prefs.galleryProps || (s.groupCol ? [s.groupCol] : [])) : (prefs.cardProps || ['__img', ...defaultCardProps(st, [s.groupCol])]);
   const setCardProps = v => setPrefs(view === 'gallery' ? { galleryProps: v } : { cardProps: v });
   const doAddTab = async v => { const like = newTab && newTab.like ? newTab.like : cur !== '*' ? cur : undefined; if (st.tabNameError(v.trim())) { st.toast(st.tabNameError(v.trim()), 'error'); return false; } setNewTab(null); const n = await st.addTab(v, like); if (n) setTab(n); return true; };
@@ -486,6 +518,8 @@ function Workspace({ st, name, onHome }) {
         <button class="btn" onClick={() => setFilters([...filters, { col: s.groupCol || baseCols[0], op: 'is', val: '' }])}>{tr("+ Agregar filtro")}</button></div></Pop>}
       {colsPop && view === 'table' && <Pop anchor={cref.current} onClose={() => setColsPop(false)} width={300}><div class="ctx-t">{tr("Columnas visibles en esta vista")}</div>
         {ordered.map(c => <label class="pop-i chkrow"><input type="checkbox" disabled={c === s.titleCol} checked={!(prefs.hidden || []).includes(c)} onChange={e => setPrefs({ hidden: e.target.checked ? (prefs.hidden || []).filter(x => x !== c) : [...(prefs.hidden || []), c] })} /><span class="tyi">{ICON[st.type(c)]}</span>{c}</label>)}
+        <div class="ctx-t">{tr("Agrupar por")}</div><div class="pad"><select style={{ width: '100%' }} value={prefs.groupBy || ''} onChange={e => setPrefs({ groupBy: e.target.value })}><option value="">{tr("(sin agrupar)")}</option>{baseCols.filter(c => ['select', 'multi', 'person', 'checkbox', 'text', 'date'].includes(st.type(c))).map(c => <option>{c}</option>)}</select></div>
+        {prefs.freezeTo && <div class="pop-i" onClick={() => setPrefs({ freezeTo: '' })}>{tr("Quitar columnas fijas (hasta «{c}»)", { c: prefs.freezeTo })}</div>}
         <label class="pop-i chkrow"><input type="checkbox" checked={!prefs.hideNums} onChange={e => setPrefs({ hideNums: !e.target.checked })} />{tr("Mostrar números de fila")}</label>
         <div class="ctx-t">{tr("Alto de filas")}</div><div class="pad"><div class="seg sm-seg"><button class={prefs.rowH !== 'compact' ? 'on' : ''} onClick={() => setPrefs({ rowH: '' })}>{tr("Ajustar al contenido")}</button><button class={prefs.rowH === 'compact' ? 'on' : ''} onClick={() => setPrefs({ rowH: 'compact' })}>{tr("Una sola línea")}</button></div></div>
         <div class="pop-i muted" onClick={() => setPrefs({ hidden: [], order: [], widths: {} })}>{tr("Restablecer columnas (orden, ancho y visibles)")}</div>
@@ -502,7 +536,7 @@ function Workspace({ st, name, onHome }) {
       {hiddenHere > 0 && <div class="hidbar">{prefs.showHidden ? tr('Mostrando {n} filas ocultas (en gris).', { n: hiddenHere }) : tr(hiddenHere === 1 ? '1 fila oculta en tu vista.' : '{n} filas ocultas en tu vista.', { n: hiddenHere })}
         <button class="mini" onClick={() => setPrefs({ showHidden: !prefs.showHidden })}>{prefs.showHidden ? tr('Volver a ocultarlas') : tr('Ver')}</button>
         <button class="mini" onClick={() => setPrefs({ hiddenRows: (prefs.hiddenRows || []).filter(id => !st.allRows(cur === '*' ? null : cur).some(r => r.id === id)), showHidden: false })}>{tr('Mostrar todas de nuevo')}</button></div>}
-      <div class="body">{view === 'table' && <TableView {...P} rows={rows} fold={fold} folderOps={folderOps} onRowDrop={onRowDrop} hiddenRows={prefs.showHidden ? hiddenRows : null} cols={tableCols} onCol={setColEdit} onAddCol={() => setAddCol({ name: '', type: 'text', all: true })} sel={sel} setSel={setSel} />}{view === 'kanban' && <KanbanView {...P} sorted={!!sort.col} onColMenu={kcolMenu} />}{view === 'gallery' && <GalleryView {...P} />}{view === 'calendar' && <CalendarView {...P} />}{view === 'dash' && <DashView {...P} />}</div>
+      <div class="body">{view === 'table' && <TableView {...P} rows={rows} fold={fold} folderOps={folderOps} onRowDrop={onRowDrop} colorOf={rowColorOf} hiddenRows={prefs.showHidden ? hiddenRows : null} cols={tableCols} onCol={setColEdit} onAddCol={() => setAddCol({ name: '', type: 'text', all: true })} sel={sel} setSel={setSel} />}{view === 'kanban' && <KanbanView {...P} sorted={!!sort.col} onColMenu={kcolMenu} />}{view === 'gallery' && <GalleryView {...P} />}{view === 'calendar' && <CalendarView {...P} />}{view === 'dash' && <DashView {...P} />}</div>
       {view === 'table' && <BulkBar st={st} rows={rows} sel={sel} setSel={setSel} onMenuAt={bulkMenu} />}</main>
     {inbox && <Inbox st={st} items={items} seen={seen} open={open} onClose={() => { setInbox(false); markSeen(); }} onSeen={markSeen} />}
     {openRow && <RowPage key={openRow.id} st={st} row={openRow} dup={dups.has(openRow.id)} onClose={() => setOpenId(null)} onMoved={to => setOpenId({ tab: to, id: openRow.id })} />}

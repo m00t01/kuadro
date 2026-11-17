@@ -9,7 +9,7 @@ import { t as tr } from './i18n.js';
 const DEFAULT_W = (st, c, tc) => c === tc ? 380 : ({ checkbox: 110, auto: 70, date: 130, number: 110 }[st.type(c)] || 160);
 const cellText = (st, r, c) => { const ty = st.type(c), v = r.v[c]; if (ty === 'checkbox') return v ? 'TRUE' : 'FALSE'; if (ty === 'date') return v ? fmtDate(v) : ''; return String(v ?? ''); };
 
-export function TableView({ st, rows, cols, open, onCol, onAddCol, onNew, dups, onMenu, prefs, setPrefs, sel, setSel, icons, hiddenRows, fold, folderOps, onRowDrop }) {
+export function TableView({ st, rows, cols, open, onCol, onAddCol, onNew, dups, onMenu, prefs, setPrefs, sel, setSel, icons, hiddenRows, fold, folderOps, onRowDrop, colorOf }) {
   const S = st.S, tc = S.config.settings.titleCol, canCol = st.can('manageColumns') || st.can('manageOptions');
   const [act, setAct] = useState(null), [anchor, setAnchor] = useState(null), [signal, setSignal] = useState({ n: 0 }), [dragCol, setDragCol] = useState(null), [overCol, setOverCol] = useState(null);
   const box = useRef(), lastRow = useRef(null), guard = useRef(null), dragFrom = useRef(null), dragRow = useRef(null), [dropAt, setDropAt] = useState(null);
@@ -102,22 +102,26 @@ export function TableView({ st, rows, cols, open, onCol, onAddCol, onNew, dups, 
     if (j >= 0) { setAnchor(null); setAct({ r: i, c: j }); }
     onMenu(e, { row: r, col, table: true });
   };
-  const left = c => c === tc && titleFirst ? NW + 'px' : undefined;
+  // Columnas fijas: el título (si va primero) y todas hasta la columna elegida en «Fijar columnas hasta aquí».
+  const frozenTo = Math.max(titleFirst ? 0 : -1, prefs.freezeTo ? cols.indexOf(prefs.freezeTo) : -1);
+  const lefts = {}; { let x = NW; cols.forEach((c, j) => { if (j <= frozenTo) { lefts[c] = x + 'px'; x += W(c); } }); }
+  const left = c => lefts[c];
+  const fz = c => c in lefts ? 'sticky ' + (cols.indexOf(c) === frozenTo ? 'fzlast ' : '') : '';
   return <div class="tablewrap"><div class="gridbox" ref={box} tabIndex={0} onKeyDown={onKey} onCopy={onCopy} onPaste={onPaste}>
     <table class={'grid fixed' + (prefs.rowH === 'compact' ? ' compact' : '') + (prefs.hideNums ? ' nonum' : '')} style={{ width: (NW + cols.reduce((a, c) => a + W(c), 0) + (st.can('manageColumns') ? 44 : 0)) + 'px' }}>
       <colgroup><col style={{ width: NW + 'px' }} />{cols.map(c => <col style={{ width: W(c) + 'px' }} />)}{st.can('manageColumns') && <col style={{ width: '44px' }} />}</colgroup>
       <thead><tr><th class="num sticky" onContextMenu={e => onMenu(e, { nums: true })} title={prefs.hideNums ? tr('Clic derecho: mostrar números de fila') : tr('Clic derecho: ocultar números de fila')}><input type="checkbox" title={tr("Seleccionar todas")} checked={allSel} onChange={() => setSel(allSel ? new Set() : new Set(rows.map(r => r.id)))} /></th>
         {cols.map(c => <th draggable onDragStart={e => { setDragCol(c); e.dataTransfer.setData('text/kuadro-col', c); e.dataTransfer.effectAllowed = 'move'; }} onDragEnd={() => { setDragCol(null); setOverCol(null); }}
           onDragOver={e => { if (dragCol && dragCol !== c) { e.preventDefault(); setOverCol(c); } }} onDrop={e => { e.preventDefault(); const from = e.dataTransfer.getData('text/kuadro-col'); setOverCol(null); setDragCol(null); if (!from || from === c) return; const order = cols.filter(x => x !== from); order.splice(order.indexOf(c) + (cols.indexOf(from) < cols.indexOf(c) ? 1 : 0), 0, from); setPrefs({ order }); }}
-          onContextMenu={e => onMenu(e, { col: c })} class={(c === tc ? 'title ' : '') + (c === tc && titleFirst ? 'sticky ' : '') + (canCol ? 'click ' : '') + (overCol === c ? 'colover' : '')} style={{ left: left(c) }} onClick={() => canCol && onCol(c)} title={canCol ? tr('Clic: editar · arrastra para mover · clic derecho: más opciones') : ''}>
+          onContextMenu={e => onMenu(e, { col: c })} class={(c === tc ? 'title ' : '') + fz(c) + (canCol ? 'click ' : '') + (overCol === c ? 'colover' : '')} style={{ left: left(c) }} onClick={() => canCol && onCol(c)} title={canCol ? tr('Clic: editar · arrastra para mover · clic derecho: más opciones') : ''}>
           <span class="th-in"><span class="tyi">{ICON[st.type(c)]}</span>{c}</span><span class="rz" onMouseDown={e => startResize(e, c)} onClick={e => e.stopPropagation()} onDblClick={e => { e.stopPropagation(); const w = { ...(prefs.widths || {}) }; delete w[c]; setPrefs({ widths: w }); }} /></th>)}
         {st.can('manageColumns') && <th class="add click" onClick={onAddCol} title={tr("Agregar columna")}>+</th>}</tr></thead>
-      {segments(rows.map((r, i) => <tr key={r.id} class={(r.tmp ? 'tmp ' : '') + (sel.has(r.id) ? 'selrow ' : '') + (hiddenRows && hiddenRows.has(r.id) ? 'hidrow ' : '') + (dropAt && dropAt.id === r.id ? (dropAt.after ? 'drop-after' : 'drop-before') : '')} onContextMenu={e => ctxMenu(e, r, i)}
+      {segments(rows.map((r, i) => <tr key={r.id} class={(r.tmp ? 'tmp ' : '') + (sel.has(r.id) ? 'selrow ' : '') + (hiddenRows && hiddenRows.has(r.id) ? 'hidrow ' : '') + (dropAt && dropAt.id === r.id ? (dropAt.after ? 'drop-after ' : 'drop-before ') : '') + (colorOf && colorOf(r) ? 'rc rc-' + colorOf(r) : '')} onContextMenu={e => ctxMenu(e, r, i)}
           onDragOver={e => { const d = dragRow.current; if (!d || !e.dataTransfer.types.includes('text/kuadro-row')) return; e.preventDefault(); e.dataTransfer.dropEffect = 'move'; const b = e.currentTarget.getBoundingClientRect(), after = e.clientY > b.top + b.height / 2; if (!dropAt || dropAt.id !== r.id || dropAt.after !== after) setDropAt({ id: r.id, after }); }}
           onDrop={e => { const d = dragRow.current; if (!d || !dropAt) return; e.preventDefault(); const at = dropAt; setDropAt(null); dragRow.current = null; if (d.id !== r.id && onRowDrop) onRowDrop(d, r, at.after); }}>
         <td class={'num sticky' + ((st.can('moveTabs') || (folderOps && folderOps.can)) && !r.tmp ? ' grab' : '') + (fold && fold.info.get(r.id) ? ' inf' + (fold.info.get(r.id).last ? ' inf-last' : '') : '')} draggable={(st.can('moveTabs') || (folderOps && folderOps.can)) && !r.tmp} onClick={e => clickNum(e, i)} title={tr("Clic: seleccionar · Ctrl/Shift: varias · arrastra para reacomodar, o suéltala en una pestaña o carpeta")} onDragStart={e => { e.dataTransfer.setData('text/plain', r.tab + '|' + r.id); e.dataTransfer.setData('text/kuadro-row', r.id); e.dataTransfer.effectAllowed = 'move'; dragRow.current = r; }} onDragEnd={() => { dragRow.current = null; setDropAt(null); }}>
           {sel.has(r.id) ? <input type="checkbox" checked readOnly /> : <><span class="n">{i + 1}</span><span class="h">⠿</span></>}</td>
-        {cols.map((c, j) => c in r.v ? <td data-col={c} data-rc={i + ':' + j} style={{ left: left(c) }} class={(c === tc ? 'title ' : '') + (c === tc && titleFirst ? 'sticky ' : '') + (act && act.r === i && act.c === j ? 'act ' : '') + (inRange(i, j) && rg && (rg.r0 !== rg.r1 || rg.c0 !== rg.c1) ? 'inrg' : '')}
+        {cols.map((c, j) => c in r.v ? <td data-col={c} data-rc={i + ':' + j} style={{ left: left(c) }} class={(c === tc ? 'title ' : '') + fz(c) + (act && act.r === i && act.c === j ? 'act ' : '') + (inRange(i, j) && rg && (rg.r0 !== rg.r1 || rg.c0 !== rg.c1) ? 'inrg' : '')}
           onMouseDown={e => { if (e.button !== 0 || e.target.closest('.pop, textarea, input, a, button')) return; if (e.shiftKey && act) { e.preventDefault(); if (!anchor) setAnchor(act); setAct({ r: i, c: j }); } else if (!(act && act.r === i && act.c === j)) { setAnchor(null); setAct({ r: i, c: j }); guard.current = i + ':' + j; setTimeout(() => { if (guard.current === i + ':' + j) guard.current = null; }, 400); } if (!e.shiftKey) dragFrom.current = { r: i, c: j }; focusBox(); }}
           onMouseEnter={e => { const d = dragFrom.current; if (!d || !(e.buttons & 1) || (d.r === i && d.c === j && !anchor)) return; guard.current = null; setAnchor(d); setAct({ r: i, c: j }); }}
           onDblClick={e => { if (e.target.closest('.pop, textarea, input')) return; setAct({ r: i, c: j }); setSignal({ n: signal.n + 1, text: null, key: act.r + ':' + act.c }); }}>
@@ -140,10 +144,10 @@ function FolderHead({ h, span, ops, pin }) {
     onDragOver={e => { if (ops.can && e.dataTransfer.types.includes('text/plain')) { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setOver(true); } }} onDragLeave={() => setOver(false)}
     onDrop={e => { e.preventDefault(); setOver(false); const [from, id] = e.dataTransfer.getData('text/plain').split('|'); if (id) ops.drop(h, from, id); }}>
     <td class={'num sticky fh-num' + (h.closed || !h.count ? '' : ' open')} />
-    <td colSpan={span} class="fh"><span class="fh-in"><span class="fh-chev">{h.closed ? '▸' : '▾'}</span><span class="fh-ic">📁</span>
+    <td colSpan={span} class="fh"><span class="fh-in"><span class="fh-chev">{h.closed ? '▸' : '▾'}</span>{h.group ? (h.color ? <span class={'fh-dot c-' + h.color} /> : <span class="fh-ic">◇</span>) : <span class="fh-ic">📁</span>}
       {ren ? <input ref={ref} class="fh-ren" value={v} maxLength={80} onClick={e => e.stopPropagation()} onInput={e => setV(e.target.value)} onBlur={save} onKeyDown={e => { e.stopPropagation(); if (e.key === 'Enter') save(); if (e.key === 'Escape') { setV(h.name); setRen(false); } }} />
-        : <b class="fh-name" onDblClick={e => { e.stopPropagation(); if (ops.can) { setV(h.name); setRen(true); } }}>{h.name}</b>}
-      <span class="fh-n">{h.count}</span>{pin && !h.closed && <span class="fh-pin" title={tr('Fijado al desplazar')}>📌</span>}{!h.count && <span class="muted sm">{tr('vacía · arrastra filas aquí o usa clic derecho → Mover a carpeta')}</span>}</span></td></tr>;
+        : <b class="fh-name" onDblClick={e => { e.stopPropagation(); if (ops.can && !h.group) { setV(h.name); setRen(true); } }}>{h.group && !h.name ? tr('(vacío)') : h.name}</b>}
+      <span class="fh-n">{h.count}</span>{pin && !h.closed && <span class="fh-pin" title={tr('Fijado al desplazar')}>📌</span>}{!h.count && !h.group && <span class="muted sm">{tr('vacía · arrastra filas aquí o usa clic derecho → Mover a carpeta')}</span>}</span></td></tr>;
 }
 // Barra de edición masiva para las filas seleccionadas.
 export function BulkBar({ st, rows, sel, setSel, onMenuAt }) {
