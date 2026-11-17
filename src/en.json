@@ -934,5 +934,7 @@
 "Filtros rápidos": "Quick filters",
 "Clic: activar o desactivar · clic derecho: quitar": "Click: turn on or off · right-click: remove",
 "Quitar de filtros rápidos": "Remove from quick filters",
-"Para ti": "For you"
+"Para ti": "For you",
+"Buscar… (Ctrl+F)": "Search… (Ctrl+F)",
+"Busca en títulos, celdas y guiones de esta vista. Esc para limpiar.": "Searches titles, cells and scripts in this view. Esc to clear."
 }

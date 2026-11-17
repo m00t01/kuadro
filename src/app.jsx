@@ -370,6 +370,7 @@ function Workspace({ st, name, onHome }) {
     const k = e => {
       const mod = e.ctrlKey || e.metaKey, typing = e.target.closest && e.target.closest('input, textarea, select, [contenteditable="true"], .ProseMirror');
       if (mod && e.key.toLowerCase() === 'k') { e.preventDefault(); setPal(true); setPq(''); setPhi(0); return; }
+      if (mod && !e.shiftKey && e.key.toLowerCase() === 'f') { const el = document.querySelector('.topbar input.search'); if (el) { e.preventDefault(); setOpenId(null); setPal(false); el.focus(); el.select(); } return; }
       if (typing) return;
       if (mod && e.key.toLowerCase() === 'z' && !e.shiftKey) { e.preventDefault(); if (!st.undoLast()) st.toast(tr('Nada que deshacer')); else st.toast(tr('Deshecho (Ctrl+Y para rehacer)')); }
       else if (mod && (e.key.toLowerCase() === 'y' || (e.key.toLowerCase() === 'z' && e.shiftKey))) { e.preventDefault(); if (st.redoLast()) st.toast(tr('Rehecho')); }
@@ -617,7 +618,7 @@ function Workspace({ st, name, onHome }) {
     <div class="status"><i class={'dot ' + (S.authExpired ? 'c-red' : S.pending ? 'c-yellow' : 'c-green')} />{S.authExpired ? tr('Sesión caducada') : S.pending ? tr('Guardando…') : tr('Sincronizado ') + new Date(S.lastSync).toLocaleTimeString(LOCALE, { hour: '2-digit', minute: '2-digit' })}<button class="icon" title={tr("Sincronizar ahora")} onClick={() => st.refresh()}>↻</button></div>
     <div class="me muted sm"><Avatar name={name_} size={18} /> {name_} · {(S.config.roles.find(r => r.id === (S.config.users.find(u => u.email.toLowerCase() === S.me.email.toLowerCase())?.roleId || S.config.defaultRoleId)) || {}).name || ''}{S.config.owner === S.me.email ? tr(' (dueño)') : ''}</div></aside>
     <main><div class="topbar"><div class="seg">{VIEWS.map(([k, l]) => <button class={view === k ? 'on' : ''} onClick={() => setView(k)}>{l}</button>)}</div>
-      <input class="search" placeholder={tr("Buscar (también dentro de los guiones)…")} value={search} onInput={e => setSearch(e.target.value)} />
+      <input class="search" placeholder={tr("Buscar… (Ctrl+F)")} title={tr("Busca en títulos, celdas y guiones de esta vista. Esc para limpiar.")} value={search} onInput={e => setSearch(e.target.value)} onKeyDown={e => { if (e.key === 'Escape') { e.stopPropagation(); if (search) setSearch(''); else e.target.blur(); } if (e.key === 'Enter' || e.key === 'ArrowDown') { e.preventDefault(); e.target.blur(); const g = document.querySelector('.gridbox'); g && g.focus(); } }} />
       <button class={'btn ib' + (filters.length ? ' on' : '')} data-k="filters" ref={fref} title={tr('Filtros')} aria-label={tr('Filtros')} onClick={() => setFpop(true)}><TI d={TICON.filter} />{filters.length ? <span class="ib-n">{filters.length}</span> : null}</button>
       <select class="btn" value={sort.col} onChange={e => setSort({ ...sort, col: e.target.value })}><option value="">{tr("Sin ordenar")}</option>{baseCols.map(c => <option value={c}>{tr('Ordenar:')} {c}</option>)}</select>
       {sort.col && <button class="btn" onClick={() => setSort({ ...sort, dir: -sort.dir })}>{sort.dir > 0 ? tr('A→Z') : tr('Z→A')}</button>}
