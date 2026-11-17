@@ -345,3 +345,8 @@ body.has-img.img-flat{background:var(--app-color,#191919) var(--app-bgimg) cente
 body.has-img.img-flat::before,body.has-img.img-flat::after{display:none}
 body.img-flat .sidebar,body.img-flat .topbar,body.img-flat .kcol{backdrop-filter:none!important}
 body.img-flat .sidebar{background:rgba(20,20,20,.62)}body.img-flat .topbar{background:rgba(18,18,18,.66)}
+.modal.settings .set nav{display:flex;flex-direction:column}.modal.settings .set nav .set-sp{flex:1 0 8px}
+.upd-mini{position:sticky;bottom:-12px;margin:8px -10px -12px;padding:10px 12px 12px;border-top:1px solid var(--line);background:#1d1d1d;display:flex;flex-direction:column;gap:6px}
+.upd-mini .upd-v{font-size:12px;color:var(--mut)}.upd-mini .sm-btn{padding:5px 10px;font-size:13px;width:100%}.upd-mini .upd-s{font-size:11px;color:var(--mut);line-height:1.35}
+body.light .upd-mini{background:#f4f3f0}
+.lrow0 input[type=number]{flex:none;width:72px}

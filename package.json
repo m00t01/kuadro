@@ -1,7 +1,7 @@
 {
   "name": "hojabase",
   "productName": "Kuadro",
-  "version": "1.6.3",
+  "version": "1.6.4",
   "description": "Free, open-source alternative to Notion, Trello and Obsidian: tables, kanban, calendar and rich pages on top of Google Sheets.",
   "author": {
     "name": "Marcos Toscano",

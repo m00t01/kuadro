@@ -28,11 +28,14 @@ await p.evaluate(() => document.querySelector('.upd-banner .icon').click()); awa
 ok('banner dismissable', !(await txt()).includes('Kuadro 1.1.0 is ready.'));
 await p.evaluate(() => [...document.querySelectorAll('button')].find(b => b.textContent.startsWith('Open demo')).click()); await wait(1500);
 await p.evaluate(() => [...document.querySelectorAll('.nav')].find(b => b.textContent.startsWith('Settings')).click()); await wait(300);
-await p.evaluate(() => [...document.querySelectorAll('button, .sec, li, a')].find(b => b.textContent.trim().startsWith('Appearance')).click()); await wait(300);
-ok('settings panel ready state', (await txt()).includes('Installed version: 1.0.0') && (await txt()).includes('Restart and update'));
+await p.setViewport({ width: 1300, height: 600 }); await wait(200);
+ok('settings footer shows ready state', await p.evaluate(() => { const m = document.querySelector('.set nav .upd-mini'); return !!m && m.textContent.includes('Kuadro 1.0.0') && m.textContent.includes('Restart and update'); }));
+ok('not inside Appearance anymore', await p.evaluate(() => { [...document.querySelectorAll('.set nav button')].find(b => b.textContent.startsWith('Appearance')).click(); return true; }) && await p.evaluate(() => !document.querySelector('.set-b').textContent.includes('Installed version')));
+const pos = () => p.evaluate(() => { const m = document.querySelector('.upd-mini').getBoundingClientRect(), mod = document.querySelector('.modal.settings').getBoundingClientRect(); return { left: Math.round(m.left - mod.left), bottom: Math.round(mod.bottom - m.bottom) }; });
+const a = await pos(); await p.evaluate(() => document.querySelector('.set-b').scrollTo(0, 3000)); await wait(100); const b2 = await pos();
+ok('fixed bottom-left, content scroll does not move it', a.left < 5 && a.bottom < 5 && a.left === b2.left && a.bottom === b2.bottom);
 await p.evaluate(() => __set({ state: 'none' })); await wait(100);
-ok('settings check button', (await txt()).includes('Check for updates') && (await txt()).includes("You're on the latest version."));
-await p.evaluate(() => { const el = [...document.querySelectorAll('b.tx')].find(b => b.textContent === 'Updates'); el.scrollIntoView(); });
+ok('check button and status', await p.evaluate(() => { const m = document.querySelector('.upd-mini'); return m.textContent.includes('Check for updates') && m.textContent.includes("You're on the latest version."); }));
 await p.screenshot({ path: '/tmp/shots/upd-settings.png' });
 await p.evaluate(() => { localStorage.setItem('kuadro-lang', 'es'); localStorage.removeItem('current'); }); await p.reload(); await wait(800);
 ok('spanish', (await txt()).includes('Buscar actualizaciones'));

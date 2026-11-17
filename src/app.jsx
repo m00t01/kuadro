@@ -45,7 +45,6 @@ function Appearance({ value, onChange }) {
     <p class="hint">{tr("La apariencia es personal: solo cambia en esta computadora, no para tu equipo.")}</p>
     {native && native.prefs && <Shortcuts />}
     <DateAlerts />
-    {native && native.updateState && <Updates />}
   </div>;
 }
 // Idioma de la interfaz (cada persona elige; se guarda en esta computadora).
@@ -104,6 +103,18 @@ function Updates() {
         : <button class="btn" disabled={checking || u.state === 'downloading' || u.state === 'dev'} onClick={check}>{checking ? tr('Buscando…') : tr('Buscar actualizaciones')}</button>}
       <span class="hint" style={{ margin: 0 }}>{updText(u)}</span></div>
     {u.state === 'error' && u.error && <p class="hint">{u.error}</p>}</div>;
+}
+// Versión y actualizaciones, fijas al pie del menú de Ajustes.
+function UpdatesMini() {
+  const u = useUpdate(), [busy, setBusy] = useState(false);
+  if (!u) return null;
+  const check = async () => { setBusy(true); try { await native.checkUpdates(); } finally { setBusy(false); } };
+  const checking = busy || u.state === 'checking';
+  return <div class="upd-mini"><div class="upd-v">Kuadro {u.current}</div>
+    {u.state === 'ready' ? <button class="btn primary sm-btn" onClick={() => native.installUpdate()}>{tr("Reiniciar y actualizar")}</button>
+      : u.state === 'available' ? <button class="btn primary sm-btn" onClick={() => native.installUpdate()}>{tr("Descargar la versión {v}", { v: u.version })}</button>
+      : <button class="btn sm-btn" disabled={checking || u.state === 'downloading' || u.state === 'dev'} onClick={check}>{checking ? tr('Buscando…') : tr('Buscar actualizaciones')}</button>}
+    <div class="upd-s" title={u.state === 'error' ? u.error : ''}>{updText(u)}</div></div>;
 }
 // Barra fija cuando una actualización ya está descargada (o, en Mac, disponible).
 function UpdateBanner() {
@@ -319,7 +330,7 @@ function Settings({ st, onClose, onCol, onAddCol, start }) {
   return <Modal title={tr("Ajustes del proyecto")} onClose={onClose} wide cls="settings"><div class="set"><nav>
       <input class="set-q" placeholder={tr("Buscar")} value={sq} onInput={e => setSq(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && shown[0]) setSec(shown[0][0]); if (e.key === 'Escape' && sq) { e.stopPropagation(); setSq(''); } }} />
       {shown.map((x, i) => [i > 0 && x[4] !== shown[i - 1][4] && <hr />, <button class={sec === x[0] ? 'on' : ''} onClick={() => { setSec(x[0]); setColOpen(null); }}><SI n={x[3]} />{x[1]}</button>])}
-      {!shown.length && <p class="muted sm" style={{ padding: '6px 10px' }}>{tr("Sin resultados.")}</p>}</nav><div class="set-b"><h3 class="set-t">{cur0 ? cur0[1] : ''}</h3>
+      {!shown.length && <p class="muted sm" style={{ padding: '6px 10px' }}>{tr("Sin resultados.")}</p>}<div class="set-sp" />{native && native.updateState && <UpdatesMini />}</nav><div class="set-b"><h3 class="set-t">{cur0 ? cur0[1] : ''}</h3>
     {sec === 'general' && <div>{sel('titleCol', tr('Columna de título (la que se abre como página)'))}{sel('groupCol', tr('Columna que agrupa el kanban'), ['select', 'person'])}{sel('dateCol', tr('Columna de fecha del calendario'), ['date'])}{sel('imageCol', tr('Columna de imagen de la galería'), ['image', 'url'])}
       <label class="f">{tr("Rol para quien no está en la lista de usuarios")}<select value={c.defaultRoleId} onChange={e => { c.defaultRoleId = e.target.value; save(); }}>{c.roles.map(r => <option value={r.id}>{r.name}</option>)}</select></label>
       <p class="hint">{tr('Dueño del proyecto:')} {c.owner}. {tr('El dueño siempre tiene todos los permisos.')}</p></div>}
