@@ -1,4 +1,4 @@
-// YouTube preview: Shorts mode (shelf card + vertical player), default on Shorts tabs, character hint.
+// YouTube preview: Shorts mode (shelf card + vertical player), default on Shorts tabs, character hint; placed between Script & notes and Comments; collapsible.
 import puppeteer from 'puppeteer-core'; import fs from 'node:fs';
 const b = await puppeteer.launch({ executablePath: '/usr/bin/google-chrome', headless: 'new', args: ['--no-sandbox', '--allow-file-access-from-files'] });
 const p = await b.newPage(); await p.setViewport({ width: 1400, height: 900 });
@@ -20,4 +20,14 @@ await p.evaluate(() => document.querySelector('.ytprev').scrollIntoView({ block:
 const el = await p.$('.ytprev'); await el.screenshot({ path: '/tmp/shots/shorts.png' });
 await p.evaluate(() => [...document.querySelectorAll('.ytprev .sm-seg button')].find(b => b.textContent === 'Home').click()); await wait(200);
 ok('switch back to Home', await p.evaluate(() => !document.querySelector('.ys-player') && !!document.querySelector('.yp.home')));
+ok('placed after Script & notes and before Comments', await p.evaluate(() => { const yp = document.querySelector('.ytprev'), ed = document.querySelector('.prose'), cm = [...document.querySelectorAll('h4')].find(h => /Comments/.test(h.textContent)); return !!(ed.compareDocumentPosition(yp) & Node.DOCUMENT_POSITION_FOLLOWING) && !!(yp.compareDocumentPosition(cm) & Node.DOCUMENT_POSITION_FOLLOWING); }));
+await p.evaluate(() => document.querySelector('.ytprev .yp-toggle').click()); await wait(200);
+ok('minimizes', await p.evaluate(() => document.querySelector('.ytprev').classList.contains('closed') && !document.querySelector('.ys-player') && !document.querySelector('.yp-home, .yp.home')));
+await p.evaluate(() => document.querySelector('.ytprev').scrollIntoView({ block: 'center' })); await wait(200);
+await (await p.$('.ytprev')).screenshot({ path: '/tmp/shots/yt-closed.png' });
+await p.keyboard.press('Escape'); await wait(300);
+await p.evaluate(() => document.querySelector('.grid tbody tr:nth-child(2) .openbtn').click()); await wait(800);
+ok('stays minimized on other pages', await p.evaluate(() => document.querySelector('.ytprev').classList.contains('closed')));
+await p.evaluate(() => document.querySelector('.ytprev .yp-toggle').click()); await wait(200);
+ok('expands again', await p.evaluate(() => !document.querySelector('.ytprev').classList.contains('closed') && !!document.querySelector('.ys-player')));
 console.log(out.join('\n')); console.log('errors:', errs); await b.close();

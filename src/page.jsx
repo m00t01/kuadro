@@ -66,9 +66,13 @@ function YTPreview({ st, row, meta, setMeta }) {
   const canal = Object.keys(row.v).find(c => /^(canal|channel)$/i.test(c)); const channel = (canal && row.v[canal]) || S.title || tr('Tu canal');
   const title = row.v[s.titleCol] || '', thumb = s.imageCol ? imgSrc(row.v[s.imageCol]) : '', n = [...title].length;
   const variants = meta.variants || [], canEd = st.canEditCol(s.titleCol);
+  // Minimizado o abierto: se recuerda en esta computadora para todas las páginas.
+  const [open, setOpen] = useState(() => { try { return localStorage.getItem('yt-preview-open') !== '0'; } catch { return true; } });
+  const toggle = () => { const v = !open; setOpen(v); try { localStorage.setItem('yt-preview-open', v ? '1' : '0'); } catch { } };
   const setV = (i, p) => setMeta({ variants: variants.map((v, j) => j === i ? { ...v, ...p } : v) });
   const useV = i => { const v = variants[i]; const rest = variants.filter((_, j) => j !== i); setMeta({ variants: [...rest, { title, thumb: row.v[s.imageCol] || '' }] }); if (v.title) st.setCell(row.tab, row.id, s.titleCol, v.title); if (s.imageCol && v.thumb && st.canEditCol(s.imageCol)) st.setCell(row.tab, row.id, s.imageCol, v.thumb); };
-  return <div class="ytprev"><div class="yp-h"><h4 class="sec0">{tr("Vista previa en YouTube")}</h4><span class="sp" />
+  if (!open) return <div class="ytprev closed"><div class="yp-h yp-toggle" onClick={toggle} title={tr("Mostrar")}><span class="yp-chev">▸</span><h4 class="sec0">{tr("Vista previa en YouTube")}</h4><span class="sp" /><span class="muted sm">{tr('{n}/100 caracteres', { n })}</span></div></div>;
+  return <div class="ytprev"><div class="yp-h"><span class="yp-toggle" onClick={toggle} title={tr("Minimizar")}><span class="yp-chev">▾</span><h4 class="sec0">{tr("Vista previa en YouTube")}</h4></span><span class="sp" />
     <div class="seg sm-seg">{[['home', tr('Portada')], ['mobile', tr('Celular')], ['search', tr('Búsqueda')], ['shorts', 'Shorts']].map(([k, l]) => <button class={mode === k && !cmp ? 'on' : ''} onClick={() => { setMode(k); setCmp(false); }}>{l}</button>)}<button class={cmp ? 'on' : ''} onClick={() => setCmp(true)}>{tr('Comparar')} ({variants.length + 1})</button></div></div>
     <div class={'yp-count' + (n > 100 ? ' bad' : n > (mode === 'shorts' && !cmp ? 40 : 70) ? ' warn' : '')}>{tr('{n}/100 caracteres', { n })}{n > 100 ? tr(' · YouTube no permite más de 100') : mode === 'shorts' && !cmp ? (n > 40 ? tr(' · en el estante de Shorts se corta alrededor del carácter 40') : tr(' · se lee completo')) + tr(' · la miniatura se recorta al centro en vertical (9:16)') : n > 70 ? tr(' · en la portada se corta alrededor del carácter 70') : n > 55 ? tr(' · en celular puede cortarse') : tr(' · se lee completo')}</div>
     {!cmp && <div class="yp-stage"><YTCard mode={mode} title={title} thumb={thumb} channel={channel} /></div>}
@@ -139,11 +143,11 @@ export function RowPage({ st, row, onClose, dup, onMoved }) {
         {dup && <div class="warn">{tr("Hay otro elemento con este mismo título.")}</div>}
         {row.tmp && <div class="warn">{tr("Esta fila aún no tiene ID en el Sheet, así que es de solo lectura.")}</div>}
         <div class="props">{cols.map(c => <div class="prop"><div class="pl"><span class="tyi">{ICON[st.type(c)]}</span>{c}</div><div class="pv"><Field st={st} row={row} col={c} big /></div></div>)}</div>
-        <YTPreview st={st} row={row} meta={meta} setMeta={p => canMeta && setMeta(p)} />
         <References st={st} row={row} />
         {recentMerge && <div class="info">↻ {tr('Se combinaron tus cambios con los de {x}', { x: who(st, merged.by) })}{merged.clean ? '.' : tr('; revisa el texto, había cambios en el mismo párrafo.')}</div>}
         <h4 class="sec">{tr("Guion y notas")}</h4>
         <RichEditor key={row.id} value={(S.pages[row.id] || {}).md || ''} version={merged && merged.at} editable={st.can('editPages') && !row.tmp} onChange={md => st.savePage(row.id, md)} onImage={st.ui.canUpload && st.can('upload') ? f => st.ui.uploadFile(f) : null} />
+        <YTPreview st={st} row={row} meta={meta} setMeta={p => canMeta && setMeta(p)} />
         <Comments st={st} row={row} />
         {st.can('viewHistory') && <div><h4 class="sec">{tr("Historial")}</h4><HistList st={st} list={hist} /></div>}
       </div></div>
