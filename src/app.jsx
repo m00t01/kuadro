@@ -407,6 +407,12 @@ function Workspace({ st, name, onHome }) {
         st.can('moveCards') && 'sep',
         st.can('moveCards') && { label: tr('Eliminar carpeta'), hint: tr('las filas se quedan'), danger: true, onClick: () => { if (confirm(tr('¿Eliminar la carpeta «{n}»?\n\nSus {c} filas NO se borran: se quedan en la pestaña, fuera de la carpeta.', { n: h.name, c: h.count }))) st.deleteFolder(h.tab, h.name); } },
       ] }); } };
+  const onRowDrop = (d, target, after) => {
+    if (sort.col) { st.toast(tr('Para reacomodar arrastrando, quita el orden (Sin ordenar).'), 'error'); return; }
+    if (d.tab !== target.tab) { if (st.can('moveTabs')) st.moveRow(d.tab, d.id, target.tab); return; }
+    const info = fold && fold.info.get(target.id), name = info ? info.key.slice(target.tab.length + 1) : '';
+    st.dropRow(target.tab, d.id, target.id, after, st.folderCol() ? name : undefined);
+  };
   const rowHItems = () => [{ label: tr('Ajustar al contenido'), check: prefs.rowH !== 'compact', onClick: () => setPrefs({ rowH: '' }) }, { label: tr('Una sola línea (compacto)'), check: prefs.rowH === 'compact', onClick: () => setPrefs({ rowH: 'compact' }) }];
   const setAllOf = list => (col, val) => { st.setMany(list.filter(r => !r.tmp && S.tabs[r.tab].header.includes(col)).map(r => ({ tab: r.tab, id: r.id, col, val })), { move: col === s.groupCol }); };
   const valuesOf = (col, setAll) => { const ty = st.type(col); if (ty === 'checkbox') return [{ label: tr('Marcar'), onClick: () => setAll(col, true) }, { label: tr('Desmarcar'), onClick: () => setAll(col, false) }]; return [...optionsOf(st, col).map(o => ({ label: o.v, onClick: () => setAll(col, o.v) })), { label: tr('Vaciar'), onClick: () => setAll(col, '') }]; };
@@ -496,7 +502,7 @@ function Workspace({ st, name, onHome }) {
       {hiddenHere > 0 && <div class="hidbar">{prefs.showHidden ? tr('Mostrando {n} filas ocultas (en gris).', { n: hiddenHere }) : tr(hiddenHere === 1 ? '1 fila oculta en tu vista.' : '{n} filas ocultas en tu vista.', { n: hiddenHere })}
         <button class="mini" onClick={() => setPrefs({ showHidden: !prefs.showHidden })}>{prefs.showHidden ? tr('Volver a ocultarlas') : tr('Ver')}</button>
         <button class="mini" onClick={() => setPrefs({ hiddenRows: (prefs.hiddenRows || []).filter(id => !st.allRows(cur === '*' ? null : cur).some(r => r.id === id)), showHidden: false })}>{tr('Mostrar todas de nuevo')}</button></div>}
-      <div class="body">{view === 'table' && <TableView {...P} rows={rows} fold={fold} folderOps={folderOps} hiddenRows={prefs.showHidden ? hiddenRows : null} cols={tableCols} onCol={setColEdit} onAddCol={() => setAddCol({ name: '', type: 'text', all: true })} sel={sel} setSel={setSel} />}{view === 'kanban' && <KanbanView {...P} sorted={!!sort.col} onColMenu={kcolMenu} />}{view === 'gallery' && <GalleryView {...P} />}{view === 'calendar' && <CalendarView {...P} />}{view === 'dash' && <DashView {...P} />}</div>
+      <div class="body">{view === 'table' && <TableView {...P} rows={rows} fold={fold} folderOps={folderOps} onRowDrop={onRowDrop} hiddenRows={prefs.showHidden ? hiddenRows : null} cols={tableCols} onCol={setColEdit} onAddCol={() => setAddCol({ name: '', type: 'text', all: true })} sel={sel} setSel={setSel} />}{view === 'kanban' && <KanbanView {...P} sorted={!!sort.col} onColMenu={kcolMenu} />}{view === 'gallery' && <GalleryView {...P} />}{view === 'calendar' && <CalendarView {...P} />}{view === 'dash' && <DashView {...P} />}</div>
       {view === 'table' && <BulkBar st={st} rows={rows} sel={sel} setSel={setSel} onMenuAt={bulkMenu} />}</main>
     {inbox && <Inbox st={st} items={items} seen={seen} open={open} onClose={() => { setInbox(false); markSeen(); }} onSeen={markSeen} />}
     {openRow && <RowPage key={openRow.id} st={st} row={openRow} dup={dups.has(openRow.id)} onClose={() => setOpenId(null)} onMoved={to => setOpenId({ tab: to, id: openRow.id })} />}
