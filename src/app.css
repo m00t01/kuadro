@@ -288,3 +288,4 @@ body.light .sidebar{background:var(--side)}body.light .nav .badge{color:#fff}
 .grid td.num.inf-last::before{bottom:50%;right:8px;border-bottom:2px solid var(--acc);border-bottom-left-radius:6px}
 .grid td.num.inf .n{position:relative;z-index:1}
 body.light .grid tr.fhead td{background:#f4f3f0}
+.btn.ib{display:inline-flex;align-items:center;gap:6px;padding-left:9px;padding-right:9px}.btn.ib .ti{flex:none;opacity:.9}.ib-n{font-size:12px;font-weight:600}

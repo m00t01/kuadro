@@ -34,7 +34,7 @@ await p.evaluate(() => [...document.querySelectorAll('.hidbar .mini')].find(b =>
 ok('show all again', await p.evaluate(() => document.querySelectorAll('.grid tbody tr').length) === t0);
 // Row height.
 const h1 = await p.evaluate(() => document.querySelector('.grid tbody').getBoundingClientRect().height);
-await p.evaluate(() => [...document.querySelectorAll('.topbar .btn')].find(b => b.textContent.startsWith('Columns')).click()); await wait(200);
+await p.click('.topbar .btn[data-k=columns]'); await wait(200);
 await p.evaluate(() => [...document.querySelectorAll('.pop button')].find(b => b.textContent === 'Single line').click()); await wait(200);
 const h2 = await p.evaluate(() => document.querySelector('.grid tbody').getBoundingClientRect().height);
 ok('single line makes rows shorter', h2 < h1 && await p.evaluate(() => [...document.querySelectorAll('.grid tbody tr')].every(tr => tr.getBoundingClientRect().height <= 36)));

@@ -62,15 +62,15 @@ await step('columnas', async () => {
   const w1 = (await th.boundingBox()).width; ok('ajustar ancho', w1 > w0 + 60);
   await th.click({ button: 'right' }); await wait(200); await click('.ctx-i', 'Hide in this view'); await wait(300);
   ok('ocultar columna', await p.evaluate(() => ![...document.querySelectorAll('.grid th')].some(t => t.textContent.includes('Channel'))));
-  await click('.topbar .btn', 'Columns'); await wait(200); await p.evaluate(() => [...document.querySelectorAll('.pop label')].find(l => l.textContent.includes('Channel')).querySelector('input').click()); await wait(200);
+  await p.click('.topbar .btn[data-k=columns]'); await wait(200); await p.evaluate(() => [...document.querySelectorAll('.pop label')].find(l => l.textContent.includes('Channel')).querySelector('input').click()); await wait(200);
   ok('mostrar de nuevo', await p.evaluate(() => [...document.querySelectorAll('.grid th')].some(t => t.textContent.includes('Channel')))); await p.keyboard.press('Escape');
 });
 await step('kanban', async () => {
   await click('.seg button', 'Kanban'); await wait(400);
-  await click('.topbar .btn', 'Properties'); await wait(200);
+  await p.click('.topbar .btn[data-k=props]'); await wait(200);
   await p.evaluate(() => { const s = document.querySelector('.pop select'); s.value = 'Channel'; s.dispatchEvent(new Event('change', { bubbles: true })); }); await wait(300); await p.keyboard.press('Escape');
   ok('carriles por canal', await p.evaluate(() => document.querySelectorAll('.lane').length >= 2)); await shot('kanban-lanes');
-  await click('.topbar .btn', 'Properties'); await wait(200); await p.evaluate(() => { const s = document.querySelector('.pop select'); s.value = ''; s.dispatchEvent(new Event('change', { bubbles: true })); }); await p.keyboard.press('Escape'); await wait(300);
+  await p.click('.topbar .btn[data-k=props]'); await wait(200); await p.evaluate(() => { const s = document.querySelector('.pop select'); s.value = ''; s.dispatchEvent(new Event('change', { bubbles: true })); }); await p.keyboard.press('Escape'); await wait(300);
   await p.evaluate(() => [...document.querySelectorAll('.kcol')].find(c => c.textContent.startsWith('Discarded')).querySelector('.kc-btn').click()); await wait(300);
   ok('plegar columna', await p.evaluate(() => !!document.querySelector('.kcol.folded')));
   await shot('kanban-folded');

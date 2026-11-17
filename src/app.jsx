@@ -149,6 +149,14 @@ function FolderForm({ st, ask, onDone }) {
     {err && <p class="hint" style={{ color: '#ff8f87' }}>{err}</p>}
     <div class="lrow0" style={{ marginTop: '12px', justifyContent: 'flex-end' }}><button class="btn" onClick={onDone}>{tr("Cancelar")}</button><button class="btn primary" disabled={!v.trim() || !!err} onClick={go}>{tr("Crear carpeta")}</button></div></div>;
 }
+// Íconos de la barra superior (trazos de 24×24).
+const TICON = {
+  filter: 'M3 5h18l-7 8.5V19l-4 2v-7.5L3 5z',
+  columns: 'M4 4h16v16H4zM9.5 4v16M14.5 4v16',
+  props: 'M4 7h10M18 7h2M4 17h4M12 17h8M14 5v4M8 15v4',
+  tasks: 'M9 11l2.5 2.5L16 9M4 4h16v16H4z',
+};
+const TI = ({ d }) => <svg class="ti" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><path d={d} /></svg>;
 // Color de fondo de una columna del kanban.
 const COLBG = ['', 'gray', 'brown', 'orange', 'yellow', 'green', 'blue', 'purple', 'pink', 'red'];
 const COLBG_NAME = { '': tr('Sin color'), gray: tr('Gris'), brown: tr('Café'), orange: tr('Naranja'), yellow: tr('Amarillo'), green: tr('Verde'), blue: tr('Azul'), purple: tr('Morado'), pink: tr('Rosa'), red: tr('Rojo') };
@@ -431,12 +439,12 @@ function Workspace({ st, name, onHome }) {
     <div class="me muted sm"><Avatar name={name_} size={18} /> {name_} · {(S.config.roles.find(r => r.id === (S.config.users.find(u => u.email.toLowerCase() === S.me.email.toLowerCase())?.roleId || S.config.defaultRoleId)) || {}).name || ''}{S.config.owner === S.me.email ? tr(' (dueño)') : ''}</div></aside>
     <main><div class="topbar"><div class="seg">{VIEWS.map(([k, l]) => <button class={view === k ? 'on' : ''} onClick={() => setView(k)}>{l}</button>)}</div>
       <input class="search" placeholder={tr("Buscar (también dentro de los guiones)…")} value={search} onInput={e => setSearch(e.target.value)} />
-      <button class={'btn' + (filters.length ? ' on' : '')} ref={fref} onClick={() => setFpop(true)}>{tr('Filtros')}{filters.length ? ` (${filters.length})` : ''}</button>
+      <button class={'btn ib' + (filters.length ? ' on' : '')} data-k="filters" ref={fref} title={tr('Filtros')} aria-label={tr('Filtros')} onClick={() => setFpop(true)}><TI d={TICON.filter} />{filters.length ? <span class="ib-n">{filters.length}</span> : null}</button>
       <select class="btn" value={sort.col} onChange={e => setSort({ ...sort, col: e.target.value })}><option value="">{tr("Sin ordenar")}</option>{baseCols.map(c => <option value={c}>{tr('Ordenar:')} {c}</option>)}</select>
       {sort.col && <button class="btn" onClick={() => setSort({ ...sort, dir: -sort.dir })}>{sort.dir > 0 ? tr('A→Z') : tr('Z→A')}</button>}
-      {view === 'table' && <button class={'btn' + ((prefs.hidden || []).length ? ' on' : '')} ref={cref} onClick={() => setColsPop(true)}>{tr('Columnas')}{(prefs.hidden || []).length ? ' ' + tr('({n} ocultas)', { n: (prefs.hidden || []).length }) : ''}</button>}
-      {(view === 'kanban' || view === 'gallery') && <button class="btn" ref={cref} onClick={() => setColsPop(true)}>{tr("Propiedades")}</button>}
-      {people.length > 0 && <button class={'btn' + (mine ? ' on' : '')} onClick={() => setMine(!mine)}>{tr("Mis pendientes")}</button>}<span class="sp" />
+      {view === 'table' && <button class={'btn ib' + ((prefs.hidden || []).length ? ' on' : '')} data-k="columns" ref={cref} title={(prefs.hidden || []).length ? tr('Columnas ({n} ocultas)', { n: (prefs.hidden || []).length }) : tr('Columnas')} aria-label={tr('Columnas')} onClick={() => setColsPop(true)}><TI d={TICON.columns} />{(prefs.hidden || []).length ? <span class="ib-n">({(prefs.hidden || []).length})</span> : null}</button>}
+      {(view === 'kanban' || view === 'gallery') && <button class="btn ib" data-k="props" ref={cref} title={tr("Propiedades")} aria-label={tr("Propiedades")} onClick={() => setColsPop(true)}><TI d={TICON.props} /></button>}
+      {people.length > 0 && <button class={'btn ib' + (mine ? ' on' : '')} data-k="mine" title={tr("Mostrar solo lo que tienes asignado y aún no está terminado")} onClick={() => setMine(!mine)}><TI d={TICON.tasks} /><span>{tr("Mis tareas")}</span></button>}<span class="sp" />
       {(st.can('addRows') || st.can('addCards')) && <button class="btn primary" onClick={() => onNew({}, !st.can('addRows'))}>{tr("+ Nuevo")}</button>}</div>
       {fpop && <Pop anchor={fref.current} onClose={() => setFpop(false)} width={460}><div class="filters">{filters.map((f, i) => { const up = p => setFilters(filters.map((x, j) => j === i ? { ...x, ...p } : x)); const o = optionsOf(st, f.col);
         return <div class="frow"><select value={f.col} onChange={e => up({ col: e.target.value, val: '' })}>{baseCols.map(c => <option>{c}</option>)}</select><select value={f.op} onChange={e => up({ op: e.target.value })}>{Object.entries(OPS).map(([k, l]) => <option value={k}>{l}</option>)}</select>

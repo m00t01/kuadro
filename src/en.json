@@ -659,5 +659,8 @@
 "Nombre de la carpeta…": "Folder name…",
 "Crear carpeta": "Create folder",
 "vacía · arrastra filas aquí o usa clic derecho → Mover a carpeta": "empty · drag rows here or use right-click → Move to folder",
-"+ Nueva carpeta": "+ New folder"
+"+ Nueva carpeta": "+ New folder",
+"Columnas ({n} ocultas)": "Columns ({n} hidden)",
+"Mostrar solo lo que tienes asignado y aún no está terminado": "Show only what's assigned to you and not done yet",
+"Mis tareas": "My tasks"
 }
