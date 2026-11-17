@@ -593,5 +593,14 @@
 "Creó la pestaña": "Created the tab",
 "Renombró la pestaña": "Renamed the tab",
 "Restauró la pestaña": "Restored the tab",
-"Hay una pestaña eliminada con ese nombre. Restáurala desde Ajustes → Historial o usa otro nombre.": "There's a deleted tab with that name. Restore it from Settings → History or use another name."
+"Hay una pestaña eliminada con ese nombre. Restáurala desde Ajustes → Historial o usa otro nombre.": "There's a deleted tab with that name. Restore it from Settings → History or use another name.",
+"Estante de Shorts": "Shorts shelf",
+"Reproductor": "Player",
+"0 vistas": "0 views",
+"Me gusta": "Like",
+"No me gusta": "Dislike",
+"Compartir": "Share",
+"Suscribirme": "Subscribe",
+" · en el estante de Shorts se corta alrededor del carácter 40": " · the Shorts shelf cuts it around character 40",
+" · la miniatura se recorta al centro en vertical (9:16)": " · the thumbnail is cropped to the center, vertical (9:16)"
 }

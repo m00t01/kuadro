@@ -1,0 +1,23 @@
+// YouTube preview: Shorts mode (shelf card + vertical player), default on Shorts tabs, character hint.
+import puppeteer from 'puppeteer-core'; import fs from 'node:fs';
+const b = await puppeteer.launch({ executablePath: '/usr/bin/google-chrome', headless: 'new', args: ['--no-sandbox', '--allow-file-access-from-files'] });
+const p = await b.newPage(); await p.setViewport({ width: 1400, height: 900 });
+const errs = []; p.on('pageerror', e => errs.push(e.message));
+const png = fs.existsSync('/tmp/thumb.png') ? fs.readFileSync('/tmp/thumb.png') : null;
+await p.setRequestInterception(true); p.on('request', r => r.url().startsWith('https://example.test/') && png ? r.respond({ status: 200, contentType: 'image/png', body: png }) : r.continue());
+const wait = ms => new Promise(r => setTimeout(r, ms)), out = [], ok = (n, v) => out.push((v ? 'ok   ' : 'FAIL ') + n);
+await p.goto('file:///home/claude/kuadro/dist/index.html'); await p.evaluate(() => localStorage.clear()); await p.reload(); await wait(400);
+await p.evaluate(() => [...document.querySelectorAll('button')].find(b => b.textContent.startsWith('Open demo')).click()); await wait(1800);
+await p.evaluate(() => { const d = JSON.parse(localStorage.getItem('demo-data-en')); const s = d.sheets.find(x => x.title === 'Shorts'); const h = s.rows[0]; s.rows[1][h.indexOf('Thumbnail file')] = 'https://example.test/thumb.png'; s.rows[1][h.indexOf('Video title')] = 'I STOLE the GOLDEN EGG in Pet Farm and nobody noticed'; localStorage.setItem('demo-data-en', JSON.stringify(d)); });
+await p.reload(); await wait(1800);
+await p.evaluate(() => [...document.querySelectorAll('.sidebar .nav')].find(b => b.textContent.startsWith('Shorts')).click()); await wait(400);
+await p.evaluate(() => document.querySelector('.grid tbody tr:nth-child(1) .openbtn').click()); await wait(900);
+ok('Shorts button present', await p.evaluate(() => [...document.querySelectorAll('.ytprev .sm-seg button')].some(b => b.textContent === 'Shorts')));
+ok('opens in Shorts mode on a Shorts tab', await p.evaluate(() => !!document.querySelector('.ys-player') && !!document.querySelector('.ys-shelf')));
+ok('shelf hint for long titles', await p.evaluate(() => document.querySelector('.yp-count').textContent.includes('Shorts shelf cuts it around character 40') && document.querySelector('.yp-count').classList.contains('warn')));
+ok('thumbnail is vertical', await p.evaluate(() => { const r = document.querySelector('.ys-player').getBoundingClientRect(); return r.height / r.width > 1.7; }));
+await p.evaluate(() => document.querySelector('.ytprev').scrollIntoView({ block: 'center' })); await wait(300);
+const el = await p.$('.ytprev'); await el.screenshot({ path: '/tmp/shots/shorts.png' });
+await p.evaluate(() => [...document.querySelectorAll('.ytprev .sm-seg button')].find(b => b.textContent === 'Home').click()); await wait(200);
+ok('switch back to Home', await p.evaluate(() => !document.querySelector('.ys-player') && !!document.querySelector('.yp.home')));
+console.log(out.join('\n')); console.log('errors:', errs); await b.close();

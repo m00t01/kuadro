@@ -33,22 +33,44 @@ function References({ st, row }) {
 }
 
 // Vista previa como se vería en YouTube (portada, celular, búsqueda) + comparar variantes de título y miniatura.
+// Íconos simples (trazos) para los botones del reproductor de Shorts.
+const SI = {
+  like: 'M7 10v11H3V10h4zm2 11h8.3a2 2 0 0 0 2-1.6l1.3-7A2 2 0 0 0 18.6 10H14l.7-3.6A2 2 0 0 0 12.8 4L9 10v11z',
+  dislike: 'M17 14V3h4v11h-4zm-2-11H6.7a2 2 0 0 0-2 1.6l-1.3 7A2 2 0 0 0 5.4 14H10l-.7 3.6a2 2 0 0 0 1.9 2.4L15 14V3z',
+  comment: 'M4 4h16v12H8l-4 4V4z', share: 'M14 5l7 7-7 7v-4c-5 0-8 1.5-10 5 1-5 4-9 10-10V5z', remix: 'M4 7h11l-3-3m3 3-3 3M20 17H9l3 3m-3-3 3-3',
+};
+const Ico = ({ d }) => <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"><path d={d} /></svg>;
+// Shorts: tarjeta vertical del estante de la portada y el reproductor a pantalla completa.
+function YTShorts({ title, thumb, channel }) {
+  const img = thumb ? <img src={thumb} /> : <div class="yp-noimg">{tr("Sin miniatura")}</div>, handle = '@' + String(channel).replace(/\s+/g, '');
+  return <div class="ys-wrap">
+    <div class="ys-col"><div class="ys-lab">{tr("Estante de Shorts")}</div>
+      <div class="ys-shelf"><div class="ys-th">{img}</div><div class="ys-t">{title || tr('Sin título')}</div><div class="yp-st">{tr("0 vistas")}</div></div></div>
+    <div class="ys-col"><div class="ys-lab">{tr("Reproductor")}</div>
+      <div class="ys-player"><div class="ys-bg">{img}</div><div class="ys-shade" />
+        <div class="ys-side">{[['like', tr('Me gusta')], ['dislike', tr('No me gusta')], ['comment', '0'], ['share', tr('Compartir')], ['remix', 'Remix']].map(([k, l]) => <div class="ys-btn"><span class="ys-ic"><Ico d={SI[k]} /></span><span>{l}</span></div>)}
+          <div class="ys-disc"><Avatar name={channel} size={30} /></div></div>
+        <div class="ys-bottom"><div class="ys-ch"><Avatar name={channel} size={30} /><b>{handle}</b><span class="ys-sub">{tr("Suscribirme")}</span></div>
+          <div class="ys-title">{title || tr('Sin título')}</div></div></div></div>
+  </div>;
+}
 function YTCard({ mode, title, thumb, channel }) {
+  if (mode === 'shorts') return <YTShorts title={title} thumb={thumb} channel={channel} />;
   const img = thumb ? <img src={thumb} /> : <div class="yp-noimg">{tr("Sin miniatura")}</div>;
   const meta = <><div class="yp-ch">{channel}</div><div class="yp-st">{tr("0 vistas · hace un momento")}</div></>;
   if (mode === 'search') return <div class="yp search"><div class="yp-th">{img}<span class="yp-dur">10:00</span></div><div class="yp-info"><div class="yp-t">{title || tr('Sin título')}</div><div class="yp-st">{tr("0 vistas · hace un momento")}</div><div class="yp-ch"><Avatar name={channel} size={20} />{channel}</div></div></div>;
   return <div class={'yp ' + mode}><div class="yp-th">{img}<span class="yp-dur">10:00</span></div><div class="yp-row"><Avatar name={channel} size={mode === 'mobile' ? 30 : 36} /><div><div class="yp-t">{title || tr('Sin título')}</div>{meta}</div></div></div>;
 }
 function YTPreview({ st, row, meta, setMeta }) {
-  const S = st.S, s = S.config.settings, [mode, setMode] = useState('home'), [cmp, setCmp] = useState(false);
-  const canal = Object.keys(row.v).find(c => /^canal$/i.test(c)); const channel = (canal && row.v[canal]) || S.title || tr('Tu canal');
+  const S = st.S, s = S.config.settings, [mode, setMode] = useState(/short/i.test(row.tab || '') ? 'shorts' : 'home'), [cmp, setCmp] = useState(false);
+  const canal = Object.keys(row.v).find(c => /^(canal|channel)$/i.test(c)); const channel = (canal && row.v[canal]) || S.title || tr('Tu canal');
   const title = row.v[s.titleCol] || '', thumb = s.imageCol ? imgSrc(row.v[s.imageCol]) : '', n = [...title].length;
   const variants = meta.variants || [], canEd = st.canEditCol(s.titleCol);
   const setV = (i, p) => setMeta({ variants: variants.map((v, j) => j === i ? { ...v, ...p } : v) });
   const useV = i => { const v = variants[i]; const rest = variants.filter((_, j) => j !== i); setMeta({ variants: [...rest, { title, thumb: row.v[s.imageCol] || '' }] }); if (v.title) st.setCell(row.tab, row.id, s.titleCol, v.title); if (s.imageCol && v.thumb && st.canEditCol(s.imageCol)) st.setCell(row.tab, row.id, s.imageCol, v.thumb); };
   return <div class="ytprev"><div class="yp-h"><h4 class="sec0">{tr("Vista previa en YouTube")}</h4><span class="sp" />
-    <div class="seg sm-seg">{[['home', tr('Portada')], ['mobile', tr('Celular')], ['search', tr('Búsqueda')]].map(([k, l]) => <button class={mode === k && !cmp ? 'on' : ''} onClick={() => { setMode(k); setCmp(false); }}>{l}</button>)}<button class={cmp ? 'on' : ''} onClick={() => setCmp(true)}>{tr('Comparar')} ({variants.length + 1})</button></div></div>
-    <div class={'yp-count' + (n > 100 ? ' bad' : n > 70 ? ' warn' : '')}>{tr('{n}/100 caracteres', { n })}{n > 100 ? tr(' · YouTube no permite más de 100') : n > 70 ? tr(' · en la portada se corta alrededor del carácter 70') : n > 55 ? tr(' · en celular puede cortarse') : tr(' · se lee completo')}</div>
+    <div class="seg sm-seg">{[['home', tr('Portada')], ['mobile', tr('Celular')], ['search', tr('Búsqueda')], ['shorts', 'Shorts']].map(([k, l]) => <button class={mode === k && !cmp ? 'on' : ''} onClick={() => { setMode(k); setCmp(false); }}>{l}</button>)}<button class={cmp ? 'on' : ''} onClick={() => setCmp(true)}>{tr('Comparar')} ({variants.length + 1})</button></div></div>
+    <div class={'yp-count' + (n > 100 ? ' bad' : n > (mode === 'shorts' && !cmp ? 40 : 70) ? ' warn' : '')}>{tr('{n}/100 caracteres', { n })}{n > 100 ? tr(' · YouTube no permite más de 100') : mode === 'shorts' && !cmp ? (n > 40 ? tr(' · en el estante de Shorts se corta alrededor del carácter 40') : tr(' · se lee completo')) + tr(' · la miniatura se recorta al centro en vertical (9:16)') : n > 70 ? tr(' · en la portada se corta alrededor del carácter 70') : n > 55 ? tr(' · en celular puede cortarse') : tr(' · se lee completo')}</div>
     {!cmp && <div class="yp-stage"><YTCard mode={mode} title={title} thumb={thumb} channel={channel} /></div>}
     {cmp && <div class="yp-cmp"><div class="yp-var cur"><div class="yp-lab">{tr("Actual")}</div><YTCard mode="home" title={title} thumb={thumb} channel={channel} /></div>
       {variants.map((v, i) => <div class="yp-var"><div class="yp-lab">{tr('Variante {n}', { n: i + 1 })}<span class="sp" />{canEd && <button class="mini" onClick={() => useV(i)}>{tr("Usar esta")}</button>}<button class="icon" title={tr("Quitar")} onClick={() => setMeta({ variants: variants.filter((_, j) => j !== i) })}>✕</button></div>
