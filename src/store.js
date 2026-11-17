@@ -16,7 +16,7 @@ export const TYPES = { text: tr('Texto'), number: tr('Número'), select: tr('Sel
 export const PERMS = [
   ['openPages', tr('Abrir páginas')], ['editPages', tr('Editar el contenido de las páginas')], ['editCells', tr('Editar celdas')],
   ['addRows', tr('Agregar filas')], ['deleteRows', tr('Eliminar filas')], ['moveCards', tr('Mover tarjetas')], ['moveTabs', tr('Mover elementos entre pestañas')], ['addCards', tr('Agregar tarjetas')],
-  ['manageColumns', tr('Agregar, renombrar y eliminar columnas')], ['manageTabs', tr('Crear y renombrar pestañas')], ['manageOptions', tr('Editar opciones de los desplegables')],
+  ['manageColumns', tr('Agregar, renombrar y eliminar columnas')], ['manageTabs', tr('Crear, renombrar y eliminar pestañas')], ['manageOptions', tr('Editar opciones de los desplegables')],
   ['comment', tr('Comentar')], ['upload', tr('Subir imágenes')], ['viewHistory', tr('Ver historial')], ['undo', tr('Deshacer cambios')],
   ['admin', tr('Administrar roles, usuarios y ajustes')],
 ];
@@ -235,8 +235,10 @@ export function createStore(api, me, opts = {}) {
     S.undo = [...S.undo, e]; emit(); return true;
   }
   const pushUndo = e => { S.undo = [...S.undo.slice(-99), e]; S.redo = []; };
-  function runInverse(e) { if (e.kind === 'delete') addRow(e.tab, e.values, { system: true, id: e.id, noUndo: true }); if (e.kind === 'create') deleteRow(e.tab, e.id, { system: true, noUndo: true }); if (e.kind === 'move') moveRow(e.to, e.id, e.from, { system: true, noUndo: true }); }
-  function runForward(e) { if (e.kind === 'delete') deleteRow(e.tab, e.id, { system: true, noUndo: true }); if (e.kind === 'create') addRow(e.tab, e.values, { system: true, id: e.id, noUndo: true }); if (e.kind === 'move') moveRow(e.from, e.id, e.to, { system: true, noUndo: true }); }
+  function runInverse(e) { if (e.kind === 'tabdel') restoreTab(e.sheetId, { system: true }); if (e.kind === 'tabrestore' || e.kind === 'tabadd') { const t = titleById(e.sheetId); if (t && S.tabs[t]) deleteTab(t, { system: true }); } if (e.kind === 'tabren') { const t = titleById(e.sheetId); if (t && S.tabs[t]) renameTab(t, e.from, { system: true }); }
+    if (e.kind === 'delete') addRow(e.tab, e.values, { system: true, id: e.id, noUndo: true }); if (e.kind === 'create') deleteRow(e.tab, e.id, { system: true, noUndo: true }); if (e.kind === 'move') moveRow(e.to, e.id, e.from, { system: true, noUndo: true }); }
+  function runForward(e) { if (e.kind === 'tabdel' || e.kind === 'tabrestore') { const t = titleById(e.sheetId); if (e.kind === 'tabdel' && t && S.tabs[t]) deleteTab(t, { system: true }); if (e.kind === 'tabrestore') restoreTab(e.sheetId, { system: true }); } if (e.kind === 'tabadd') restoreTab(e.sheetId, { system: true }); if (e.kind === 'tabren') { const t = titleById(e.sheetId); if (t && S.tabs[t]) renameTab(t, e.to, { system: true }); }
+    if (e.kind === 'delete') deleteRow(e.tab, e.id, { system: true, noUndo: true }); if (e.kind === 'create') addRow(e.tab, e.values, { system: true, id: e.id, noUndo: true }); if (e.kind === 'move') moveRow(e.from, e.id, e.to, { system: true, noUndo: true }); }
   function resolveConflict(c, mine) { S.conflicts = S.conflicts.filter(x => x !== c); emit(); if (mine) setCell(c.tab, c.id, c.col, c.mine, { force: true, system: true }); }
 
   function addRow(tab, values = {}, o = {}) {
@@ -325,6 +327,17 @@ export function createStore(api, me, opts = {}) {
     if (h.kind === 'delete') { let v = {}; try { v = JSON.parse(h.before); } catch { } return addRow(h.tab, v, { system: true, id: h.rowId }); }
     if (h.kind === 'create') return deleteRow(h.tab, h.rowId, { system: true });
     if (h.kind === 'move') return moveRow(h.after, h.rowId, h.before, { system: true });
+    if (h.kind === 'tabdel') return restoreTab(h.col);
+    if (h.kind === 'tabadd' || h.kind === 'tabrestore') { const t = titleById(h.col); if (t && S.tabs[t]) return deleteTab(t); toast(tr('Esa pestaña ya no está visible.')); return; }
+    if (h.kind === 'tabren') { const t = titleById(h.col); if (t && S.tabs[t]) return renameTab(t, h.before); toast(tr('Esa pestaña ya no está visible.')); return; }
+  }
+  // ¿Se puede deshacer o restaurar esta entrada del historial ahora mismo?
+  function undoable(h) {
+    if (h.kind === 'notify') return false;
+    if (h.kind === 'tabdel') return canRestoreTab(h.col);
+    if (h.kind === 'tabadd' || h.kind === 'tabrestore' || h.kind === 'tabren') { const t = titleById(h.col); return !!t && !!S.tabs[t] && (h.kind !== 'tabren' || t === h.after); }
+    if (h.kind === 'delete') return !S.order.some(t => S.tabs[t].rows.some(r => r.id === h.rowId)) && !!S.tabs[h.tab];
+    return true;
   }
 
   const heads = async tabs => (await api.batchGet(tabs.map(t => `${q(t)}!1:1`))).map(v => (v[0] || []).map(x => String(x ?? '').trim()));
@@ -370,7 +383,8 @@ export function createStore(api, me, opts = {}) {
     if (!name) return tr('Escribe un nombre para la pestaña.');
     if (name.length > 90) return tr('El nombre es demasiado largo.');
     if (/^_app_/i.test(name)) return tr('Ese nombre está reservado.');
-    if (S.meta && S.meta.sheets.some(x => x.title.toLowerCase() === name.toLowerCase() && x.title !== except)) return tr('Ya existe una pestaña con ese nombre.');
+    const clash = S.meta && S.meta.sheets.find(x => x.title.toLowerCase() === name.toLowerCase() && x.title !== except);
+    if (clash) return clash.hidden && !clash.title.startsWith('_app_') ? tr('Hay una pestaña eliminada con ese nombre. Restáurala desde Ajustes → Historial o usa otro nombre.') : tr('Ya existe una pestaña con ese nombre.');
     if (S.order.some(t => t.toLowerCase() === name.toLowerCase() && t !== except)) return tr('Ya existe una pestaña con ese nombre.');
     return '';
   };
@@ -385,13 +399,15 @@ export function createStore(api, me, opts = {}) {
       let header = src ? S.tabs[src].header.filter(Boolean) : [];
       if (!header.includes('ID')) header = [...header, 'ID'];
       const title0 = S.config.settings.titleCol; if (title0 && !header.includes(title0)) header = [title0, ...header];
-      await api.batchUpdate([{ addSheet: { properties: { title: name, gridProperties: { rowCount: 1000, columnCount: Math.max(header.length, 5), frozenRowCount: 1 } } } }]);
+      const rep = await api.batchUpdate([{ addSheet: { properties: { title: name, gridProperties: { rowCount: 1000, columnCount: Math.max(header.length, 5), frozenRowCount: 1 } } } }]);
       await api.batchUpdateValues([{ range: `${q(name)}!A1`, values: [header] }], 'RAW');
-      S.meta = await api.meta(); await reload(); toast(tr('Pestaña «{t}» creada', { t: name }));
+      const sid = rep && rep[0] && rep[0].addSheet ? rep[0].addSheet.properties.sheetId : '';
+      await log([[name, '', String(sid), '', name, 'tabadd', name]]); pushUndo({ kind: 'tabadd', sheetId: sid, title: name });
+      await reload(); toast(tr('Pestaña «{t}» creada', { t: name }));
       return name;
     });
   }
-  function renameTab(old, neu) {
+  function renameTab(old, neu, o = {}) {
     neu = String(neu || '').trim(); if (!can('manageTabs') || !S.tabs[old] || neu === old) return Promise.resolve(old);
     const err = tabNameError(neu, old); if (err) { toast(err, 'error'); return Promise.resolve(null); }
     return enqueue(async () => {
@@ -401,10 +417,45 @@ export function createStore(api, me, opts = {}) {
       const fix = p => { if (p && Array.isArray(p.hiddenTabs)) p.hiddenTabs = p.hiddenTabs.map(sw); };
       c.roles.forEach(r => fix(r.perms)); c.users.forEach(u => fix(u.overrides));
       (c.automations || []).forEach(a => { if (a.when && a.when.tab === old) a.when.tab = neu; (a.conds || []).forEach(k => { if (k.op === 'tab' && k.val === old) k.val = neu; }); (a.actions || []).forEach(x => { if (x.type === 'move' && x.tab === old) x.tab = neu; }); });
-      await saveConfigNow(); S.meta = await api.meta(); await reload(); toast(tr('Pestaña renombrada a «{t}»', { t: neu }));
+      await saveConfigNow(); await log([[neu, '', String(S.tabs[old].sheetId), old, neu, 'tabren', neu]]);
+      if (!o.system) pushUndo({ kind: 'tabren', sheetId: S.tabs[old].sheetId, from: old, to: neu });
+      await reload(); toast(tr('Pestaña renombrada a «{t}»', { t: neu }));
       return neu;
     });
   }
+  // Eliminar una pestaña la oculta en el Sheet (no borra nada); se puede restaurar desde el historial.
+  const sheetById = id => S.meta && S.meta.sheets.find(x => String(x.sheetId) === String(id));
+  const canRestoreTab = id => { const sh = sheetById(id); return !!sh && sh.hidden && !sh.title.startsWith('_app_'); };
+  function deleteTab(name, o = {}) {
+    if (!can('manageTabs') || !S.tabs[name]) return Promise.resolve(false);
+    if (S.order.length <= 1) { toast(tr('No puedes eliminar la única pestaña.'), 'error'); return Promise.resolve(false); }
+    const T = S.tabs[name], n = T.rows.length;
+    return enqueue(async () => {
+      await flushFirst();
+      await api.batchUpdate([{ updateSheetProperties: { properties: { sheetId: T.sheetId, hidden: true }, fields: 'hidden' } }]);
+      await log([[name, '', String(T.sheetId), name, String(n), 'tabdel', name]]);
+      if (!o.system) pushUndo({ kind: 'tabdel', sheetId: T.sheetId, title: name });
+      await reload(); toast(tr('Pestaña «{t}» eliminada. Puedes restaurarla desde Ajustes → Historial.', { t: name }));
+      return true;
+    });
+  }
+  function restoreTab(sheetId, o = {}) {
+    if (!can('manageTabs')) { toast(tr('No tienes permiso para restaurar pestañas.'), 'error'); return Promise.resolve(null); }
+    return enqueue(async () => {
+      await flushFirst();
+      const meta = await api.meta(); const sh = meta.sheets.find(x => String(x.sheetId) === String(sheetId));
+      if (!sh) { toast(tr('Esa pestaña ya no existe en el Sheet.'), 'error'); return null; }
+      if (!sh.hidden) { toast(tr('Esa pestaña ya está visible.')); return sh.title; }
+      let title = sh.title; const taken = t => meta.sheets.some(x => x !== sh && x.title.toLowerCase() === t.toLowerCase());
+      if (taken(title)) { let i = 1, base = title + tr(' (restaurada)'); title = base; while (taken(title)) title = base + ' ' + (++i); }
+      await api.batchUpdate([{ updateSheetProperties: { properties: { sheetId: sh.sheetId, hidden: false, title }, fields: title === sh.title ? 'hidden' : 'hidden,title' } }]);
+      await log([[title, '', String(sh.sheetId), '', title, 'tabrestore', title]]);
+      if (!o.system) pushUndo({ kind: 'tabrestore', sheetId: sh.sheetId, title });
+      await reload(); toast(tr('Pestaña «{t}» restaurada', { t: title }));
+      return title;
+    });
+  }
+  const titleById = id => (sheetById(id) || {}).title;
   // Renombra una opción de desplegable en la configuración y en todas las celdas que la usan.
   function renameOption(col, old, neu) {
     neu = neu.trim(); const sc = S.config.schema[col]; if (!sc || !neu || neu === old) return;
@@ -641,5 +692,5 @@ export function createStore(api, me, opts = {}) {
     return true;
   }
   const searchPages = (qy, rows) => { const k = norm(qy); if (k.length < 2) return []; const out = []; for (const r of rows) { const md = S.pages[r.id]?.md; if (!md) continue; const i = norm(md).indexOf(k); if (i >= 0) out.push({ row: r, snippet: md.replace(/[#*>`\[\]-]/g, ' ').replace(/\s+/g, ' ').slice(Math.max(0, i - 30), i + 70) }); } return out; };
-  return { runAutomations, todayISO, autoFill, setMany, undoLast, redoLast, setPageMeta, setPresence, editComment, deleteComment, searchPages, S, subscribe: f => { subs.add(f); return () => subs.delete(f); }, emit, toast, init, refresh, prepare, can, canEditCol, hiddenCols, hiddenTabs, type, myName, perms, setCell, resolveConflict, addRow, deleteRow, moveRow, reorder, undo, addColumn, renameColumn, deleteColumn, addTab, renameTab, tabNameError, renameOption, saveConfig, savePage, addComment, allRows, duplicates, idle, api };
+  return { runAutomations, todayISO, autoFill, setMany, undoLast, redoLast, setPageMeta, setPresence, editComment, deleteComment, searchPages, S, subscribe: f => { subs.add(f); return () => subs.delete(f); }, emit, toast, init, refresh, prepare, can, canEditCol, hiddenCols, hiddenTabs, type, myName, perms, setCell, resolveConflict, addRow, deleteRow, moveRow, reorder, undo, addColumn, renameColumn, deleteColumn, addTab, renameTab, tabNameError, deleteTab, restoreTab, canRestoreTab, undoable, renameOption, saveConfig, savePage, addComment, allRows, duplicates, idle, api };
 }

@@ -243,3 +243,26 @@ test('pestañas: crear con las mismas columnas, renombrar y actualizar referenci
   // Sin permiso no se puede.
   const { st: st3 } = await boot({ email: 'otro@example.com', name: 'Otro' }, api.d); assert.equal(st3.can('manageTabs'), false); assert.equal(await st3.addTab('X'), null);
 });
+
+test('pestañas: eliminar oculta (no borra) y se restaura desde el historial o con deshacer', async () => {
+  const { api, st, S } = await ready();
+  const tab = S.order.find(t => t !== 'ROBLOX'), n = S.tabs[tab].rows.length, rowsBefore = JSON.stringify(api.sheet(tab).rows);
+  assert.equal(await st.deleteTab(tab), true);
+  assert.ok(!S.order.includes(tab)); assert.ok(api.sheet(tab).hidden); assert.equal(JSON.stringify(api.sheet(tab).rows), rowsBefore);
+  const h = S.history.at(-1); assert.deepEqual([h.kind, h.before, h.after], ['tabdel', tab, String(n)]); assert.equal(st.undoable(h), true);
+  // Restaurar desde el historial.
+  assert.equal(await st.restoreTab(h.col), tab); assert.ok(S.order.includes(tab)); assert.equal(S.tabs[tab].rows.length, n); assert.equal(st.undoable(h), false);
+  // Ctrl+Z: borrar y deshacer.
+  await st.deleteTab(tab); assert.ok(!S.order.includes(tab)); st.undoLast(); await st.idle(); assert.ok(S.order.includes(tab));
+  // Si ya existe otra con ese nombre, se restaura con otro nombre.
+  // Google no permite dos pestañas con el mismo nombre, aunque una esté oculta: se avisa claramente.
+  await st.deleteTab(tab); assert.match(st.tabNameError(tab), /eliminada/); assert.equal(await st.addTab(tab), null);
+  const del = S.history.filter(x => x.kind === 'tabdel').at(-1); assert.equal(await st.restoreTab(del.col), tab); assert.equal(S.tabs[tab].rows.length, n);
+  // No se puede eliminar la última pestaña.
+  const { st: one, S: S1 } = await ready(); for (const t of S1.order.slice(1)) await one.deleteTab(t); assert.equal(S1.order.length, 1); assert.equal(await one.deleteTab(S1.order[0]), false);
+  // Renombrar se puede deshacer desde el historial.
+  await st.renameTab('ROBLOX', 'R2'); const ren = S.history.at(-1); assert.equal(ren.kind, 'tabren'); await st.undo(ren); await st.idle(); assert.ok(S.tabs.ROBLOX);
+  // Una fila borrada se puede restaurar y luego deja de ofrecerse.
+  const row = S.tabs.ROBLOX.rows[0]; await st.deleteRow('ROBLOX', row.id); const dh = S.history.filter(x => x.kind === 'delete').at(-1);
+  assert.equal(st.undoable(dh), true); await st.undo(dh); await st.idle(); assert.ok(S.tabs.ROBLOX.rows.some(r => r.id === row.id)); assert.equal(st.undoable(dh), false);
+});

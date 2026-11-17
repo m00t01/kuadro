@@ -1,8 +1,8 @@
-// Tabs in the sidebar: "+ New tab" below the list, right-click → Rename tab, double-click to rename.
+// Tabs in the sidebar: "+ New tab" below the list, right-click → Rename / Delete, double-click to rename, restore from History.
 import puppeteer from 'puppeteer-core';
 const b = await puppeteer.launch({ executablePath: '/usr/bin/google-chrome', headless: 'new', args: ['--no-sandbox', '--allow-file-access-from-files'] });
-const p = await b.newPage(); await p.setViewport({ width: 1400, height: 860 });
-const errs = []; p.on('pageerror', e => errs.push(e.message));
+const p = await b.newPage(); const dialogs = []; await p.setViewport({ width: 1400, height: 860 });
+const errs = []; p.on('pageerror', e => errs.push(e.message)); p.on('dialog', d => { dialogs.push(d.message()); d.accept(); });
 const wait = ms => new Promise(r => setTimeout(r, ms)), out = [], ok = (n, v) => out.push((v ? 'ok   ' : 'FAIL ') + n);
 const navs = () => p.evaluate(() => [...document.querySelectorAll('.sidebar .nav')].map(b => b.childNodes[0]?.textContent?.trim()));
 const sheets = () => p.evaluate(() => JSON.parse(localStorage.getItem('demo-data-en')).sheets.map(s => s.title));
@@ -30,4 +30,22 @@ ok('duplicate rejected', !(await sheets()).includes('shorts 3d') && await p.eval
 await p.keyboard.press('Escape'); await wait(150);
 ok('escape cancels', (await navs()).includes('Legends'));
 await p.screenshot({ path: '/tmp/shots/tabs-done.png', captureBeyondViewport: false });
+
+const hidden = () => p.evaluate(() => JSON.parse(localStorage.getItem('demo-data-en')).sheets.filter(s => s.hidden && !s.title.startsWith('_app_')).map(s => s.title));
+const el3 = await p.evaluateHandle(() => [...document.querySelectorAll('.sidebar .nav')].find(b => b.textContent.startsWith('Reactions')));
+const b3 = await el3.boundingBox(); await p.mouse.click(b3.x + 30, b3.y + 10, { button: 'right' }); await wait(200);
+await p.screenshot({ path: '/tmp/shots/tabs-menu-del.png', captureBeyondViewport: false });
+await p.evaluate(() => [...document.querySelectorAll('.ctx-i')].find(i => i.textContent.startsWith('Delete tab')).click()); await wait(900);
+ok('confirm explains nothing is erased', dialogs.some(d => d.includes('Nothing is erased')));
+ok('deleted tab hidden, not erased', (await hidden()).includes('Reactions') && (await sheets()).includes('Reactions'));
+ok('gone from sidebar', !(await navs()).includes('Reactions'));
+await p.evaluate(() => [...document.querySelectorAll('.sidebar .nav')].find(b => b.textContent.startsWith('Settings')).click()); await wait(300);
+await p.evaluate(() => [...document.querySelectorAll('button, .side button')].find(b => b.textContent.trim() === 'History').click()); await wait(300);
+await p.evaluate(() => [...document.querySelectorAll('.seg button')].find(b => b.textContent === 'Deleted only').click()); await wait(200);
+ok('history shows deleted tab with Restore', await p.evaluate(() => { const r = [...document.querySelectorAll('.hrow')].find(r => r.textContent.includes('Deleted the tab') && r.textContent.includes('Reactions')); return !!r && !!r.querySelector('.mini.restore'); }));
+await p.screenshot({ path: '/tmp/shots/tabs-history.png', captureBeyondViewport: false });
+await p.evaluate(() => [...document.querySelectorAll('.hrow')].find(r => r.textContent.includes('Reactions')).querySelector('.mini.restore').click()); await wait(900);
+ok('restored', !(await hidden()).includes('Reactions') && (await navs()).includes('Reactions'));
+ok('restore button gone', await p.evaluate(() => [...document.querySelectorAll('.hrow')].find(r => r.textContent.includes('Deleted the tab') && r.textContent.includes('Reactions')).textContent.includes('Restored')));
+await p.keyboard.press('Escape'); await wait(200);
 console.log(out.join('\n')); console.log('errors:', errs); await b.close();

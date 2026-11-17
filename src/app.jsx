@@ -130,6 +130,15 @@ function TabNameInput({ initial = '', placeholder, onSave, onCancel }) {
     onKeyDown={e => { e.stopPropagation(); if (e.key === 'Enter') { e.preventDefault(); if (v.trim()) save(); else onCancel(); } if (e.key === 'Escape') onCancel(); }}
     onBlur={() => { if (busy.current) return; if (Date.now() - born.current < 400) { setTimeout(() => ref.current && ref.current.focus(), 0); return; } if (v.trim() && v.trim() !== initial) save(); else onCancel(); }} />;
 }
+// Historial del proyecto, con filtro para encontrar rápido lo que se borró.
+function HistSection({ st }) {
+  const [only, setOnly] = useState(false), S = st.S;
+  const all = [...S.history].filter(h => h.kind !== 'notify').reverse();
+  const list = (only ? all.filter(h => h.kind === 'delete' || h.kind === 'tabdel') : all).slice(0, 300);
+  return <div><p class="hint">{tr("Si borraste algo por accidente, búscalo aquí y toca «Restaurar». Cada cambio también se puede deshacer.")}</p>
+    <div class="seg sm-seg" style={{ marginBottom: '10px' }}><button class={!only ? 'on' : ''} onClick={() => setOnly(false)}>{tr("Todo")}</button><button class={only ? 'on' : ''} onClick={() => setOnly(true)}>{tr("Solo lo eliminado")}</button></div>
+    <HistList st={st} list={list} /></div>;
+}
 // Color de fondo de una columna del kanban.
 const COLBG = ['', 'gray', 'brown', 'orange', 'yellow', 'green', 'blue', 'purple', 'pink', 'red'];
 const COLBG_NAME = { '': tr('Sin color'), gray: tr('Gris'), brown: tr('Café'), orange: tr('Naranja'), yellow: tr('Amarillo'), green: tr('Verde'), blue: tr('Azul'), purple: tr('Morado'), pink: tr('Rosa'), red: tr('Rojo') };
@@ -217,7 +226,7 @@ function Settings({ st, onClose, onCol, onAddCol, start }) {
         <button class="btn danger" onClick={() => { c.templates = c.templates.filter(t => t !== tpl); setTid(0); save(); }}>{tr("Eliminar plantilla")}</button></div> : <p class="muted grow">{tr("Una plantilla es el contenido inicial de la página al crear un elemento.")}</p>}</div>}
     {sec === 'auto' && <AutomationList st={st} />}
     {sec === 'look' && <Appearance value={st.ui.appear()} onChange={st.ui.setAppear} />}
-    {sec === 'hist' && <HistList st={st} list={[...S.history].filter(h => h.kind !== 'notify').reverse().slice(0, 300)} />}
+    {sec === 'hist' && <HistSection st={st} />}
   </div></div></Modal>;
 }
 
@@ -326,13 +335,14 @@ function Workspace({ st, name, onHome }) {
   const cardProps = view === 'gallery' ? (prefs.galleryProps || (s.groupCol ? [s.groupCol] : [])) : (prefs.cardProps || ['__img', ...defaultCardProps(st, [s.groupCol])]);
   const setCardProps = v => setPrefs(view === 'gallery' ? { galleryProps: v } : { cardProps: v });
   const doAddTab = async v => { const like = newTab && newTab.like ? newTab.like : cur !== '*' ? cur : undefined; if (st.tabNameError(v.trim())) { st.toast(st.tabNameError(v.trim()), 'error'); return false; } setNewTab(null); const n = await st.addTab(v, like); if (n) setTab(n); return true; };
+  const doDeleteTab = async t => { const n = S.tabs[t].rows.length; if (!confirm(tr('¿Eliminar la pestaña «{t}» y sus {n} elementos?\n\nNo se borra nada de tu Google Sheet: la pestaña se oculta y puedes restaurarla cuando quieras desde Ajustes → Historial (o con Ctrl+Z).', { t, n }))) return; if (tab === t) setTab('*'); await st.deleteTab(t); };
   const doRename = async (old, v) => { v = v.trim(); if (!v || v === old) { setRenTab(null); return true; } const e = st.tabNameError(v, old); if (e) { st.toast(e, 'error'); return false; } setRenTab(null); const n = await st.renameTab(old, v); if (n && n !== old) { if (tab === old) setTab(n); setViews(views.map(x => x.tab === old ? { ...x, tab: n } : x)); } return true; };
   return <div class="app"><aside class="sidebar"><div class="proj click" onClick={onHome} title={tr("Cambiar de proyecto")}><span class="logo-row"><img src="icon.png" alt="" class="logo" /><span class="sm muted">Kuadro</span></span><b>{S.title || name}</b><span class="muted sm">{tr("Cambiar de proyecto")}</span></div>
     <button class={'nav' + (inbox ? ' on' : '')} onClick={() => setInbox(!inbox)}>🔔 {tr('Bandeja')}{unread > 0 ? <span class="badge">{unread}</span> : <span />}</button>
     <div class="nav-h">{tr("Pestañas")}</div><button class={'nav' + (cur === '*' ? ' on' : '')} onClick={() => setTab('*')}>{tr("Todos")}<span>{st.allRows().length}</span></button>
     {tabs.map(t => renTab && renTab.tab === t ? <TabNameInput key={'r' + t} initial={t} onCancel={() => setRenTab(null)} onSave={v => doRename(t, v)} />
       : <button class={'nav' + (cur === t ? ' on' : '') + (dropTab === t ? ' drop' : '')} onClick={() => setTab(t)} onDblClick={() => st.can('manageTabs') && setRenTab({ tab: t })}
-      onContextMenu={e => { e.preventDefault(); setMenu({ x: e.clientX, y: e.clientY, title: t, items: [{ label: tr('Abrir'), onClick: () => setTab(t) }, st.can('manageTabs') && { label: tr('Renombrar pestaña'), hint: tr('Doble clic'), onClick: () => setRenTab({ tab: t }) }, st.can('manageTabs') && { label: tr('Nueva pestaña con estas columnas'), onClick: () => setNewTab({ like: t }) }] }); }}
+      onContextMenu={e => { e.preventDefault(); setMenu({ x: e.clientX, y: e.clientY, title: t, items: [{ label: tr('Abrir'), onClick: () => setTab(t) }, st.can('manageTabs') && { label: tr('Renombrar pestaña'), hint: tr('Doble clic'), onClick: () => setRenTab({ tab: t }) }, st.can('manageTabs') && { label: tr('Nueva pestaña con estas columnas'), onClick: () => setNewTab({ like: t }) }, st.can('manageTabs') && 'sep', st.can('manageTabs') && { label: tr('Eliminar pestaña'), danger: true, disabled: tabs.length <= 1, onClick: () => doDeleteTab(t) }] }); }}
       onDragOver={e => { if (st.can('moveTabs') && e.dataTransfer.types.includes('text/plain')) { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; if (dropTab !== t) setDropTab(t); } }} onDragLeave={() => setDropTab(null)}
       onDrop={e => { e.preventDefault(); setDropTab(null); const [from, id] = e.dataTransfer.getData('text/plain').split('|'); if (id && from !== t) { st.moveRow(from, id, t); if (openId && openId.id === id) setOpenId({ tab: t, id }); } }}>{t}<span>{S.tabs[t].rows.length}</span></button>)}
     {newTab !== null ? <TabNameInput placeholder={tr("Nombre de la pestaña…")} onCancel={() => setNewTab(null)} onSave={doAddTab} /> : st.can('manageTabs') && <button class="nav muted" onClick={() => setNewTab('')}>{tr("+ Nueva pestaña")}</button>}

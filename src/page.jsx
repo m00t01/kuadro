@@ -11,8 +11,13 @@ export const coverCss = c => !c ? null : c.startsWith('grad:') ? { background: G
 
 export function HistList({ st, list }) {
   return <div class="hist">{list.map(h => <div class="hrow"><span class="muted sm">{when(h.at)} · {who(st, h.user)}</span>
-    <span>{h.kind === 'edit' ? <span><b>{h.col}</b>: {h.before || '—'} → {h.after || '—'}</span> : h.kind === 'create' ? tr('Creó el elemento') : h.kind === 'move' ? <span>{tr('Movió de')} <b>{h.before}</b> {tr('a')} <b>{h.after}</b></span> : h.kind === 'notify' ? <span>{tr("⚡ Aviso a")}{' '}<b>{h.col}</b>: {h.after}</span> : tr('Eliminó el elemento')}{h.title && <span class="muted"> · {h.title.slice(0, 50)}</span>}</span>
-    {st.can('undo') && h.kind !== 'notify' && <button class="mini" onClick={() => st.undo(h)}>{tr("Deshacer")}</button>}</div>)}{!list.length && <p class="muted">{tr("Sin cambios registrados.")}</p>}</div>;
+    <span>{h.kind === 'edit' ? <span><b>{h.col}</b>: {h.before || '—'} → {h.after || '—'}</span> : h.kind === 'create' ? tr('Creó el elemento') : h.kind === 'move' ? <span>{tr('Movió de')} <b>{h.before}</b> {tr('a')} <b>{h.after}</b></span> : h.kind === 'notify' ? <span>{tr("⚡ Aviso a")}{' '}<b>{h.col}</b>: {h.after}</span>
+      : h.kind === 'tabdel' ? <span>{tr('Eliminó la pestaña')} <b>{h.before}</b> <span class="muted">({tr('{n} elementos', { n: h.after || 0 })})</span></span>
+      : h.kind === 'tabadd' ? <span>{tr('Creó la pestaña')} <b>{h.after}</b></span>
+      : h.kind === 'tabren' ? <span>{tr('Renombró la pestaña')} <b>{h.before}</b> {tr('a')} <b>{h.after}</b></span>
+      : h.kind === 'tabrestore' ? <span>{tr('Restauró la pestaña')} <b>{h.after}</b></span>
+      : tr('Eliminó el elemento')}{h.title && !h.kind.startsWith('tab') && <span class="muted"> · {h.title.slice(0, 50)}</span>}</span>
+    {st.can('undo') && h.kind !== 'notify' && (st.undoable(h) ? <button class={'mini' + (h.kind === 'delete' || h.kind === 'tabdel' ? ' restore' : '')} onClick={() => st.undo(h)}>{h.kind === 'delete' || h.kind === 'tabdel' ? tr("Restaurar") : tr("Deshacer")}</button> : (h.kind === 'delete' || h.kind === 'tabdel') && <span class="muted sm">{tr("Restaurado")}</span>)}</div>)}{!list.length && <p class="muted">{tr("Sin cambios registrados.")}</p>}</div>;
 }
 
 const ytCache = new Map();

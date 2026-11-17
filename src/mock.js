@@ -54,7 +54,7 @@ export class MockSheets {
     const byId = id => this.d.sheets.find(s => s.sheetId === id); const replies = [];
     for (const rq of requests) {
       if (rq.addSheet) { const p = rq.addSheet.properties; const sheetId = Math.max(0, ...this.d.sheets.map(s => s.sheetId)) + 1; this.d.sheets.push({ sheetId, title: p.title, hidden: !!p.hidden, rows: [], cols: p.gridProperties?.columnCount || 26 }); replies.push({ addSheet: { properties: { sheetId, title: p.title } } }); continue; }
-      if (rq.updateSheetProperties) { const pr = rq.updateSheetProperties.properties, s = byId(pr.sheetId); if (pr.title) s.title = pr.title; }
+      if (rq.updateSheetProperties) { const pr = rq.updateSheetProperties.properties, s = byId(pr.sheetId); if (pr.title) s.title = pr.title; if ('hidden' in pr) s.hidden = !!pr.hidden; }
       if (rq.deleteDimension) { const g = rq.deleteDimension.range, s = byId(g.sheetId); if (g.dimension === 'ROWS') s.rows.splice(g.startIndex, g.endIndex - g.startIndex); else { s.rows.forEach(r => r.splice(g.startIndex, g.endIndex - g.startIndex)); s.cols = (s.cols || 26) - (g.endIndex - g.startIndex); } }
       if (rq.moveDimension && rq.moveDimension.source.dimension === 'ROWS') { const m = rq.moveDimension, s = byId(m.source.sheetId), n = m.source.endIndex - m.source.startIndex; const blk = s.rows.splice(m.source.startIndex, n); let d = m.destinationIndex; if (d > m.source.startIndex) d -= n; s.rows.splice(d, 0, ...blk); }
       if (rq.appendDimension && rq.appendDimension.dimension === 'COLUMNS') { const s = byId(rq.appendDimension.sheetId); s.cols = (s.cols || 26) + rq.appendDimension.length; }
