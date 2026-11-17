@@ -36,6 +36,12 @@ export class GoogleSheets {
     const d = await this.req('GET', `${BASE}${this.id}?fields=properties.title,sheets.properties`);
     return { title: d.properties.title, sheets: (d.sheets || []).map(s => ({ sheetId: s.properties.sheetId, title: s.properties.title, hidden: !!s.properties.hidden, columnCount: s.properties.gridProperties?.columnCount || 26 })) };
   }
+  // Grupos de filas nativos de una pestaña (los corchetes de la izquierda en Google Sheets).
+  async rowGroups(sheetId) {
+    const d = await this.req('GET', `${BASE}${this.id}?fields=sheets(properties.sheetId,rowGroups)`);
+    const sh = (d.sheets || []).find(s => s.properties.sheetId === sheetId) || {};
+    return (sh.rowGroups || []).map(g => ({ start: g.range.startIndex || 0, end: g.range.endIndex, depth: g.depth || 1 }));
+  }
   async batchGet(ranges) {
     if (!ranges.length) return [];
     const p = new URLSearchParams({ valueRenderOption: 'UNFORMATTED_VALUE', dateTimeRenderOption: 'SERIAL_NUMBER', majorDimension: 'ROWS' });

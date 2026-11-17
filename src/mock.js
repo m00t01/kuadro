@@ -55,6 +55,8 @@ export class MockSheets {
     for (const rq of requests) {
       if (rq.addSheet) { const p = rq.addSheet.properties; const sheetId = Math.max(0, ...this.d.sheets.map(s => s.sheetId)) + 1; this.d.sheets.push({ sheetId, title: p.title, hidden: !!p.hidden, rows: [], cols: p.gridProperties?.columnCount || 26 }); replies.push({ addSheet: { properties: { sheetId, title: p.title } } }); continue; }
       if (rq.updateSheetProperties) { const pr = rq.updateSheetProperties.properties, s = byId(pr.sheetId); if (pr.title) s.title = pr.title; if ('hidden' in pr) s.hidden = !!pr.hidden; }
+      if (rq.addDimensionGroup) { const g = rq.addDimensionGroup.range, s = byId(g.sheetId); s.rowGroups = [...(s.rowGroups || []), { start: g.startIndex, end: g.endIndex, depth: 1 }]; }
+      if (rq.deleteDimensionGroup) { const g = rq.deleteDimensionGroup.range, s = byId(g.sheetId); const i = (s.rowGroups || []).findIndex(x => x.start === g.startIndex && x.end === g.endIndex); if (i >= 0) s.rowGroups.splice(i, 1); }
       if (rq.deleteDimension) { const g = rq.deleteDimension.range, s = byId(g.sheetId); if (g.dimension === 'ROWS') s.rows.splice(g.startIndex, g.endIndex - g.startIndex); else { s.rows.forEach(r => r.splice(g.startIndex, g.endIndex - g.startIndex)); s.cols = (s.cols || 26) - (g.endIndex - g.startIndex); } }
       if (rq.moveDimension && rq.moveDimension.source.dimension === 'ROWS') { const m = rq.moveDimension, s = byId(m.source.sheetId), n = m.source.endIndex - m.source.startIndex; const blk = s.rows.splice(m.source.startIndex, n); let d = m.destinationIndex; if (d > m.source.startIndex) d -= n; s.rows.splice(d, 0, ...blk); }
       if (rq.appendDimension && rq.appendDimension.dimension === 'COLUMNS') { const s = byId(rq.appendDimension.sheetId); s.cols = (s.cols || 26) + rq.appendDimension.length; }
@@ -62,5 +64,6 @@ export class MockSheets {
     }
     this.save(); return replies;
   }
+  async rowGroups(sheetId) { this.calls.push('rowGroups'); const s = this.d.sheets.find(x => x.sheetId === sheetId); return (s && s.rowGroups || []).map(g => ({ ...g })); }
   async colHints(tabs) { const o = {}; for (const t of tabs) o[t] = this.sheet(t).hints || {}; return o; }
 }

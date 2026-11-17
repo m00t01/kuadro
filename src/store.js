@@ -456,6 +456,85 @@ export function createStore(api, me, opts = {}) {
     });
   }
   const titleById = id => (sheetById(id) || {}).title;
+  // ---------- Carpetas de filas ----------
+  // Cada fila guarda el nombre de su carpeta en una columna del Sheet; la lista de carpetas por pestaña vive en la configuración.
+  // Las filas de una carpeta se mantienen juntas en el Sheet y se agrupan con los grupos nativos de Google Sheets.
+  const folderCol = () => S.config.settings.folderCol || '';
+  function foldersOf(tab) {
+    const fc = folderCol(), defs = (S.config.folders || []).filter(f => f.tab === tab).map(f => ({ ...f }));
+    if (fc && S.tabs[tab]) S.tabs[tab].rows.forEach(r => { const n = String(r.v[fc] || '').trim(); if (n && !defs.some(d => d.name === n)) defs.push({ id: 'auto:' + n, name: n, tab }); });
+    return defs;
+  }
+  async function ensureFolderCol(tab) {
+    let fc = folderCol();
+    if (!fc) { fc = tr('Carpeta'); if (S.order.some(t => S.tabs[t].header.includes(fc)) && !(S.config.schema[fc] || {}).folder) fc = tr('Carpeta') + ' (Kuadro)'; S.config.settings.folderCol = fc; }
+    if (!S.config.schema[fc]) S.config.schema[fc] = { type: 'text', options: [], folder: true };
+    const [h] = await heads([tab]);
+    if (!h.includes(fc)) {
+      const meta = await api.meta(), sm = meta.sheets.find(x => x.title === tab), at = h.length;
+      if (at >= sm.columnCount) await api.batchUpdate([{ appendDimension: { sheetId: sm.sheetId, dimension: 'COLUMNS', length: 1 } }]);
+      await api.batchUpdateValues([{ range: `${q(tab)}!${colL(at)}1`, values: [[fc]] }], 'RAW');
+    }
+    await saveConfigNow(); S.tabs[tab] = await fresh(tab); applyOpt();
+    return fc;
+  }
+  const folderNameError = (tab, name, except) => !name ? tr('Escribe un nombre para la carpeta.') : name.length > 80 ? tr('El nombre es demasiado largo.') : foldersOf(tab).some(f => f.name.toLowerCase() === name.toLowerCase() && f.name !== except) ? tr('Ya hay una carpeta con ese nombre en esta pestaña.') : '';
+  function addFolder(tab, name, ids = []) {
+    name = String(name || '').trim(); if (!can('moveCards') || !S.tabs[tab]) return Promise.resolve(null);
+    const err = folderNameError(tab, name); if (err) { toast(err, 'error'); return Promise.resolve(null); }
+    S.config.folders = [...(S.config.folders || []), { id: newId(), name, tab }]; emit();
+    const p = enqueue(async () => { await flushFirst(); await ensureFolderCol(tab); });
+    return p.then(async () => { if (ids.length) await moveToFolder(tab, ids, name); else await syncGroups(tab); toast(tr('Carpeta «{n}» creada', { n: name })); return name; });
+  }
+  // Mete (o saca, con name = '') filas en una carpeta: se escriben las celdas y las filas se mueven al final de la carpeta.
+  async function moveToFolder(tab, ids, name) {
+    if (!can('moveCards')) { toast(tr('No tienes permiso para mover tarjetas.'), 'error'); return; }
+    const T = S.tabs[tab]; if (!T) return;
+    let fc = folderCol(); if (!fc || !T.header.includes(fc)) { await enqueue(async () => { await flushFirst(); fc = await ensureFolderCol(tab); }); }
+    const moving = new Set(ids), list = S.tabs[tab].rows.filter(r => moving.has(r.id) && !r.tmp); if (!list.length) return;
+    const olds = [...new Set(list.map(r => String(r.v[fc] || '')).filter(Boolean))];
+    await setMany(list.map(r => ({ tab, id: r.id, col: fc, val: name })), { system: true });
+    const rows = () => S.tabs[tab].rows;
+    if (name) {
+      const others = rows().filter(r => !moving.has(r.id) && String(r.v[fc] || '') === name);
+      let target = others.length ? others[others.length - 1].id : null;
+      for (const r of list) { if (target) await reorder(tab, r.id, target, true); target = r.id; }
+    } else {
+      // Al sacarlas, quedan justo debajo de la carpeta de donde salieron.
+      for (const old of olds) { const rest = rows().filter(r => !moving.has(r.id) && String(r.v[fc] || '') === old); if (!rest.length) continue; let target = rest[rest.length - 1].id; for (const r of list.filter(x => String(x.v[fc] || '') === '' )) { await reorder(tab, r.id, target, true); target = r.id; } }
+    }
+    await syncGroups(tab);
+    toast(name ? tr(list.length === 1 ? 'Movido a «{n}»' : '{c} filas movidas a «{n}»', { n: name, c: list.length }) : tr('Fuera de la carpeta'));
+  }
+  async function renameFolder(tab, old, neu) {
+    neu = String(neu || '').trim(); if (!can('moveCards') || neu === old) return old;
+    const err = folderNameError(tab, neu, old); if (err) { toast(err, 'error'); return null; }
+    const fc = folderCol(), members = (S.tabs[tab]?.rows || []).filter(r => !r.tmp && String(r.v[fc] || '') === old);
+    const f = (S.config.folders || []).find(x => x.tab === tab && x.name === old); if (f) f.name = neu; else S.config.folders = [...(S.config.folders || []), { id: newId(), name: neu, tab }];
+    if (members.length) await setMany(members.map(r => ({ tab, id: r.id, col: fc, val: neu })), { system: true });
+    await enqueue(saveConfigNow); return neu;
+  }
+  // Eliminar una carpeta no borra sus filas: solo las saca de la carpeta.
+  async function deleteFolder(tab, name) {
+    if (!can('moveCards')) return;
+    const fc = folderCol(), members = (S.tabs[tab]?.rows || []).filter(r => !r.tmp && String(r.v[fc] || '') === name);
+    S.config.folders = (S.config.folders || []).filter(x => !(x.tab === tab && x.name === name));
+    if (members.length) await setMany(members.map(r => ({ tab, id: r.id, col: fc, val: '' })), { system: true });
+    await enqueue(saveConfigNow); await syncGroups(tab); toast(tr('Carpeta «{n}» eliminada; sus filas siguen en la pestaña.', { n: name }));
+  }
+  // Grupos nativos de Google Sheets: uno por carpeta cuyas filas estén juntas.
+  function syncGroups(tab) {
+    return enqueue(async () => {
+      await flushFirst(); const fc = folderCol(); if (!fc || !S.tabs[tab] || !api.rowGroups) return;
+      const t = await fresh(tab); S.tabs[tab] = t; applyOpt();
+      const want = []; foldersOf(tab).forEach(f => { const rs = t.rows.filter(r => !r.tmp && String(r.v[fc] || '') === f.name).map(r => r.r).sort((a, b) => a - b); if (rs.length && rs[rs.length - 1] - rs[0] + 1 === rs.length) want.push([rs[0], rs[rs.length - 1] + 1]); });
+      const have = (await api.rowGroups(t.sheetId)).sort((a, b) => b.depth - a.depth);
+      const same = have.length === want.length && have.every(g => g.depth === 1 && want.some(w => w[0] === g.start && w[1] === g.end));
+      if (same) return;
+      const reqs = [...have.map(g => ({ deleteDimensionGroup: { range: { sheetId: t.sheetId, dimension: 'ROWS', startIndex: g.start, endIndex: g.end } } })), ...want.map(([a, b]) => ({ addDimensionGroup: { range: { sheetId: t.sheetId, dimension: 'ROWS', startIndex: a, endIndex: b } } }))];
+      if (reqs.length) try { await api.batchUpdate(reqs); } catch (e) { console.warn('row groups', e); }
+    });
+  }
   // Renombra una opción de desplegable en la configuración y en todas las celdas que la usan.
   function renameOption(col, old, neu) {
     neu = neu.trim(); const sc = S.config.schema[col]; if (!sc || !neu || neu === old) return;
@@ -692,5 +771,5 @@ export function createStore(api, me, opts = {}) {
     return true;
   }
   const searchPages = (qy, rows) => { const k = norm(qy); if (k.length < 2) return []; const out = []; for (const r of rows) { const md = S.pages[r.id]?.md; if (!md) continue; const i = norm(md).indexOf(k); if (i >= 0) out.push({ row: r, snippet: md.replace(/[#*>`\[\]-]/g, ' ').replace(/\s+/g, ' ').slice(Math.max(0, i - 30), i + 70) }); } return out; };
-  return { runAutomations, todayISO, autoFill, setMany, undoLast, redoLast, setPageMeta, setPresence, editComment, deleteComment, searchPages, S, subscribe: f => { subs.add(f); return () => subs.delete(f); }, emit, toast, init, refresh, prepare, can, canEditCol, hiddenCols, hiddenTabs, type, myName, perms, setCell, resolveConflict, addRow, deleteRow, moveRow, reorder, undo, addColumn, renameColumn, deleteColumn, addTab, renameTab, tabNameError, deleteTab, restoreTab, canRestoreTab, undoable, renameOption, saveConfig, savePage, addComment, allRows, duplicates, idle, api };
+  return { runAutomations, todayISO, autoFill, setMany, undoLast, redoLast, setPageMeta, setPresence, editComment, deleteComment, searchPages, S, subscribe: f => { subs.add(f); return () => subs.delete(f); }, emit, toast, init, refresh, prepare, can, canEditCol, hiddenCols, hiddenTabs, type, myName, perms, setCell, resolveConflict, addRow, deleteRow, moveRow, reorder, undo, addColumn, renameColumn, deleteColumn, addTab, renameTab, tabNameError, deleteTab, restoreTab, canRestoreTab, undoable, folderCol, foldersOf, addFolder, moveToFolder, renameFolder, deleteFolder, syncGroups, folderNameError, renameOption, saveConfig, savePage, addComment, allRows, duplicates, idle, api };
 }

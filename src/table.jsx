@@ -9,7 +9,7 @@ import { t as tr } from './i18n.js';
 const DEFAULT_W = (st, c, tc) => c === tc ? 380 : ({ checkbox: 110, auto: 70, date: 130, number: 110 }[st.type(c)] || 160);
 const cellText = (st, r, c) => { const ty = st.type(c), v = r.v[c]; if (ty === 'checkbox') return v ? 'TRUE' : 'FALSE'; if (ty === 'date') return v ? fmtDate(v) : ''; return String(v ?? ''); };
 
-export function TableView({ st, rows, cols, open, onCol, onAddCol, onNew, dups, onMenu, prefs, setPrefs, sel, setSel, icons, hiddenRows }) {
+export function TableView({ st, rows, cols, open, onCol, onAddCol, onNew, dups, onMenu, prefs, setPrefs, sel, setSel, icons, hiddenRows, fold, folderOps }) {
   const S = st.S, tc = S.config.settings.titleCol, canCol = st.can('manageColumns') || st.can('manageOptions');
   const [act, setAct] = useState(null), [anchor, setAnchor] = useState(null), [signal, setSignal] = useState({ n: 0 }), [dragCol, setDragCol] = useState(null), [overCol, setOverCol] = useState(null);
   const box = useRef(), lastRow = useRef(null), guard = useRef(null), dragFrom = useRef(null);
@@ -90,8 +90,8 @@ export function TableView({ st, rows, cols, open, onCol, onAddCol, onNew, dups, 
           onContextMenu={e => onMenu(e, { col: c })} class={(c === tc ? 'title ' : '') + (c === tc && titleFirst ? 'sticky ' : '') + (canCol ? 'click ' : '') + (overCol === c ? 'colover' : '')} style={{ left: left(c) }} onClick={() => canCol && onCol(c)} title={canCol ? tr('Clic: editar · arrastra para mover · clic derecho: más opciones') : ''}>
           <span class="th-in"><span class="tyi">{ICON[st.type(c)]}</span>{c}</span><span class="rz" onMouseDown={e => startResize(e, c)} onClick={e => e.stopPropagation()} onDblClick={e => { e.stopPropagation(); const w = { ...(prefs.widths || {}) }; delete w[c]; setPrefs({ widths: w }); }} /></th>)}
         {st.can('manageColumns') && <th class="add click" onClick={onAddCol} title={tr("Agregar columna")}>+</th>}</tr></thead>
-      <tbody>{rows.map((r, i) => <tr key={r.id} class={(r.tmp ? 'tmp ' : '') + (sel.has(r.id) ? 'selrow ' : '') + (hiddenRows && hiddenRows.has(r.id) ? 'hidrow' : '')} onContextMenu={e => ctxMenu(e, r, i)}>
-        <td class={'num sticky' + (st.can('moveTabs') && !r.tmp ? ' grab' : '')} draggable={st.can('moveTabs') && !r.tmp} onClick={e => clickNum(e, i)} title="Clic: seleccionar · Ctrl/Shift: varias · arrastra a una pestaña para moverla" onDragStart={e => { e.dataTransfer.setData('text/plain', r.tab + '|' + r.id); e.dataTransfer.effectAllowed = 'move'; }}>
+      <tbody>{rows.map((r, i) => [...(fold ? fold.heads.filter(h => h.at === i).map(h => <FolderHead key={'f:' + h.key} h={h} span={cols.length + (st.can('manageColumns') ? 1 : 0)} ops={folderOps} />) : []), <tr key={r.id} class={(r.tmp ? 'tmp ' : '') + (sel.has(r.id) ? 'selrow ' : '') + (hiddenRows && hiddenRows.has(r.id) ? 'hidrow' : '')} onContextMenu={e => ctxMenu(e, r, i)}>
+        <td class={'num sticky' + ((st.can('moveTabs') || (folderOps && folderOps.can)) && !r.tmp ? ' grab' : '') + (fold && fold.info.get(r.id) ? ' inf' + (fold.info.get(r.id).last ? ' inf-last' : '') : '')} draggable={(st.can('moveTabs') || (folderOps && folderOps.can)) && !r.tmp} onClick={e => clickNum(e, i)} title="Clic: seleccionar · Ctrl/Shift: varias · arrastra a una pestaña para moverla" onDragStart={e => { e.dataTransfer.setData('text/plain', r.tab + '|' + r.id); e.dataTransfer.effectAllowed = 'move'; }}>
           {sel.has(r.id) ? <input type="checkbox" checked readOnly /> : <><span class="n">{i + 1}</span><span class="h">⠿</span></>}</td>
         {cols.map((c, j) => c in r.v ? <td data-col={c} data-rc={i + ':' + j} style={{ left: left(c) }} class={(c === tc ? 'title ' : '') + (c === tc && titleFirst ? 'sticky ' : '') + (act && act.r === i && act.c === j ? 'act ' : '') + (inRange(i, j) && rg && (rg.r0 !== rg.r1 || rg.c0 !== rg.c1) ? 'inrg' : '')}
           onMouseDown={e => { if (e.button !== 0 || e.target.closest('.pop, textarea, input, a, button')) return; if (e.shiftKey && act) { e.preventDefault(); if (!anchor) setAnchor(act); setAct({ r: i, c: j }); } else if (!(act && act.r === i && act.c === j)) { setAnchor(null); setAct({ r: i, c: j }); guard.current = i + ':' + j; setTimeout(() => { if (guard.current === i + ':' + j) guard.current = null; }, 400); } if (!e.shiftKey) dragFrom.current = { r: i, c: j }; focusBox(); }}
@@ -100,13 +100,27 @@ export function TableView({ st, rows, cols, open, onCol, onAddCol, onNew, dups, 
           {c === tc && st.can('openPages') && <button class="openbtn" onClick={() => open(r)}>{tr("Abrir")}</button>}{c === tc && icons && icons[r.id] && <span class="ticon">{icons[r.id]}</span>}
           <Field st={st} row={r} col={c} table guard={() => { if (guard.current === i + ':' + j) { guard.current = null; return true; } return false; }} active={!!act && act.r === i && act.c === j} signal={signal.key === i + ':' + j ? signal : null} onConsumed={() => setSignal(x => ({ ...x, key: null }))} onDone={onDone} />
           {c === tc && dups.has(r.id) && <span class="dup" title={tr("Hay otro elemento con el mismo título")}>{tr("Duplicado")}</span>}</td> : <td class="na" data-rc={i + ':' + j} />)}
-        {st.can('manageColumns') && <td class="na" />}</tr>)}</tbody></table>
+        {st.can('manageColumns') && <td class="na" />}</tr>])}{fold && fold.heads.filter(h => h.at >= rows.length).map(h => <FolderHead key={'f:' + h.key} h={h} span={cols.length + (st.can('manageColumns') ? 1 : 0)} ops={folderOps} />)}</tbody></table>
     {!rows.length && <div class="empty">{tr("No hay filas que coincidan.")}</div>}
-    {st.can('addRows') && <button class="addrow" onClick={() => onNew({})}>{tr("+ Nueva fila")}</button>}
+    <div class="lrow0">{st.can('addRows') && <button class="addrow" onClick={() => onNew({})}>{tr("+ Nueva fila")}</button>}{folderOps && folderOps.can && folderOps.newFolder && <button class="addrow" onClick={folderOps.newFolder}>{tr("+ Nueva carpeta")}</button>}</div>
     <div class="kbhint muted sm">{tr("Flechas para moverte · Enter o escribir para editar · Shift para seleccionar varias · Ctrl+C / Ctrl+V · Supr para vaciar · Ctrl+Z para deshacer")}</div>
   </div></div>;
 }
 
+// Encabezado de una carpeta: clic para colapsar, doble clic para renombrar, se puede soltar una fila encima.
+function FolderHead({ h, span, ops }) {
+  const [ren, setRen] = useState(false), [over, setOver] = useState(false), [v, setV] = useState(h.name), ref = useRef();
+  useEffect(() => { if (ren && ref.current) { ref.current.focus(); ref.current.select(); } }, [ren]);
+  const save = async () => { const n = v.trim(); setRen(false); if (n && n !== h.name) { const r = await ops.rename(h, n); if (!r) setV(h.name); } else setV(h.name); };
+  return <tr class={'fhead' + (h.closed ? ' closed' : '') + (over ? ' over' : '')} onClick={() => !ren && ops.toggle(h.key)} onContextMenu={e => ops.menu(e, h, () => { setV(h.name); setRen(true); })}
+    onDragOver={e => { if (ops.can && e.dataTransfer.types.includes('text/plain')) { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setOver(true); } }} onDragLeave={() => setOver(false)}
+    onDrop={e => { e.preventDefault(); setOver(false); const [from, id] = e.dataTransfer.getData('text/plain').split('|'); if (id) ops.drop(h, from, id); }}>
+    <td class={'num sticky fh-num' + (h.closed || !h.count ? '' : ' open')} />
+    <td colSpan={span} class="fh"><span class="fh-in"><span class="fh-chev">{h.closed ? '▸' : '▾'}</span><span class="fh-ic">📁</span>
+      {ren ? <input ref={ref} class="fh-ren" value={v} maxLength={80} onClick={e => e.stopPropagation()} onInput={e => setV(e.target.value)} onBlur={save} onKeyDown={e => { e.stopPropagation(); if (e.key === 'Enter') save(); if (e.key === 'Escape') { setV(h.name); setRen(false); } }} />
+        : <b class="fh-name" onDblClick={e => { e.stopPropagation(); if (ops.can) { setV(h.name); setRen(true); } }}>{h.name}</b>}
+      <span class="fh-n">{h.count}</span>{!h.count && <span class="muted sm">{tr('vacía · arrastra filas aquí o usa clic derecho → Mover a carpeta')}</span>}</span></td></tr>;
+}
 // Barra de edición masiva para las filas seleccionadas.
 export function BulkBar({ st, rows, sel, setSel, onMenuAt }) {
   const S = st.S, s = S.config.settings, list = rows.filter(r => sel.has(r.id) && !r.tmp);

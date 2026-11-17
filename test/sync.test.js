@@ -266,3 +266,31 @@ test('pestañas: eliminar oculta (no borra) y se restaura desde el historial o c
   const row = S.tabs.ROBLOX.rows[0]; await st.deleteRow('ROBLOX', row.id); const dh = S.history.filter(x => x.kind === 'delete').at(-1);
   assert.equal(st.undoable(dh), true); await st.undo(dh); await st.idle(); assert.ok(S.tabs.ROBLOX.rows.some(r => r.id === row.id)); assert.equal(st.undoable(dh), false);
 });
+
+test('carpetas: crear, meter filas lejanas al final, agrupar en Sheets, sacar, renombrar y eliminar', async () => {
+  const { api, st, S } = await ready(); const tab = 'ROBLOX', ids = S.tabs[tab].rows.map(r => r.id);
+  const idx = id => S.tabs[tab].rows.findIndex(r => r.id === id);
+  assert.equal(await st.addFolder(tab, 'Ideas en pausa', [ids[2], ids[3]]), 'Ideas en pausa'); await st.idle();
+  const fc = st.folderCol(); assert.equal(fc, 'Carpeta'); assert.ok(S.tabs[tab].header.includes(fc));
+  assert.equal(cell(api, tab, ids[2], fc), 'Ideas en pausa'); assert.equal(cell(api, tab, ids[3], fc), 'Ideas en pausa');
+  // Una fila lejana entra y queda al final de la carpeta.
+  await st.moveToFolder(tab, [ids[40]], 'Ideas en pausa'); await st.idle();
+  assert.deepEqual([idx(ids[2]), idx(ids[3]), idx(ids[40])], [2, 3, 4]);
+  const sheetRows = api.sheet(tab).rows, h = sheetRows[0], at = id => sheetRows.findIndex(r => r[h.indexOf('ID')] === id);
+  assert.deepEqual([at(ids[2]), at(ids[3]), at(ids[40])], [3, 4, 5]);
+  assert.deepEqual(api.sheet(tab).rowGroups, [{ start: 3, end: 6, depth: 1 }]);
+  // Nombre repetido en la misma pestaña no se permite.
+  assert.equal(await st.addFolder(tab, 'ideas en pausa'), null);
+  // Sacar una fila: queda justo debajo de la carpeta y el grupo se achica.
+  await st.moveToFolder(tab, [ids[2]], ''); await st.idle();
+  assert.equal(cell(api, tab, ids[2], fc), ''); assert.equal(idx(ids[2]), idx(ids[40]) + 1); assert.deepEqual(api.sheet(tab).rowGroups.map(g => g.end - g.start), [2]);
+  // Renombrar.
+  assert.equal(await st.renameFolder(tab, 'Ideas en pausa', 'Pausa'), 'Pausa'); await st.idle();
+  assert.equal(cell(api, tab, ids[40], fc), 'Pausa'); assert.deepEqual(st.foldersOf(tab).map(f => f.name), ['Pausa']);
+  // Carpeta vacía y luego eliminar: las filas siguen ahí.
+  await st.addFolder(tab, 'Vacía'); await st.idle(); assert.deepEqual(st.foldersOf(tab).map(f => f.name), ['Pausa', 'Vacía']);
+  const n = S.tabs[tab].rows.length; await st.deleteFolder(tab, 'Pausa'); await st.idle();
+  assert.equal(S.tabs[tab].rows.length, n); assert.equal(cell(api, tab, ids[40], fc), ''); assert.deepEqual(api.sheet(tab).rowGroups, []);
+  // Persistencia: otra persona ve las mismas carpetas.
+  const { st: st2 } = await boot(ME, api.d); assert.deepEqual(st2.foldersOf(tab).map(f => f.name), ['Vacía']);
+});
