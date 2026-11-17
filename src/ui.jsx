@@ -22,9 +22,9 @@ export function Pop({ anchor, onClose, children, width = 250 }) {
   const css = Object.fromEntries(Object.entries(style).map(([k, v]) => [k, typeof v === 'number' ? v + 'px' : v]));
   return <div ref={ref} class="pop" style={css} onClick={e => e.stopPropagation()} onKeyDown={e => e.stopPropagation()} onCopy={e => e.stopPropagation()} onPaste={e => e.stopPropagation()}>{children}</div>;
 }
-export function Modal({ title, onClose, children, wide }) {
+export function Modal({ title, onClose, children, wide, cls }) {
   useEffect(() => { const k = e => { if (e.key === 'Escape') onClose(); }; document.addEventListener('keydown', k); return () => document.removeEventListener('keydown', k); }, []);
-  return <div class="overlay" onMouseDown={e => { if (e.target === e.currentTarget) onClose(); }}><div class={'modal' + (wide ? ' wide' : '')}><div class="modal-h"><b>{title}</b><button class="icon" onClick={onClose} aria-label={tr("Cerrar")}>✕</button></div><div class="modal-b">{children}</div></div></div>;
+  return <div class="overlay" onMouseDown={e => { if (e.target === e.currentTarget) onClose(); }}><div class={'modal' + (wide ? ' wide' : '') + (cls ? ' ' + cls : '')}><div class="modal-h"><b>{title}</b><button class="icon" onClick={onClose} aria-label={tr("Cerrar")}>✕</button></div><div class="modal-b">{children}</div></div></div>;
 }
 
 export const optionsOf = (st, col) => { const sc = st.S.config.schema[col] || {}; return sc.type === 'person' ? st.S.config.users.filter(u => !sc.roleId || u.roleId === sc.roleId).map(u => ({ v: u.name, color: 'blue' })) : (sc.options || []); };

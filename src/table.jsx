@@ -9,7 +9,7 @@ import { t as tr } from './i18n.js';
 const DEFAULT_W = (st, c, tc) => c === tc ? 380 : ({ checkbox: 110, auto: 70, date: 130, number: 110 }[st.type(c)] || 160);
 const cellText = (st, r, c) => { const ty = st.type(c), v = r.v[c]; if (ty === 'checkbox') return v ? 'TRUE' : 'FALSE'; if (ty === 'date') return v ? fmtDate(v) : ''; return String(v ?? ''); };
 
-export function TableView({ st, rows, cols, open, onCol, onAddCol, onNew, dups, onMenu, prefs, setPrefs, sel, setSel, icons, hiddenRows, fold, folderOps, onRowDrop, colorOf }) {
+export function TableView({ st, rows, cols, open, onCol, onAddCol, onNew, dups, onMenu, prefs, setPrefs, sel, setSel, icons, hiddenRows, fold, folderOps, onRowDrop, colorOf, onPasteList }) {
   const S = st.S, tc = S.config.settings.titleCol, canCol = st.can('manageColumns') || st.can('manageOptions');
   const [act, setAct] = useState(null), [anchor, setAnchor] = useState(null), [signal, setSignal] = useState({ n: 0 }), [dragCol, setDragCol] = useState(null), [overCol, setOverCol] = useState(null);
   const box = useRef(), lastRow = useRef(null), guard = useRef(null), dragFrom = useRef(null), dragRow = useRef(null), [dropAt, setDropAt] = useState(null);
@@ -54,7 +54,11 @@ export function TableView({ st, rows, cols, open, onCol, onAddCol, onNew, dups, 
   };
   const onCopy = e => { if (e.target !== box.current || !rg) return; const lines = []; for (let r = rg.r0; r <= rg.r1; r++) { const cells = []; for (let c = rg.c0; c <= rg.c1; c++) cells.push(cellText(st, rows[r], cols[c]).replace(/[\t\n]/g, ' ')); lines.push(cells.join('\t')); } e.clipboardData.setData('text/plain', lines.join('\n')); e.preventDefault(); st.toast(tr('Copiado: {n} celdas', { n: (rg.r1 - rg.r0 + 1) * (rg.c1 - rg.c0 + 1) })); };
   const onPaste = e => {
-    if (e.target !== box.current || !act) return; e.preventDefault();
+    if (e.target !== box.current) return;
+    const raw = e.clipboardData.getData('text/plain').replace(/\r/g, '').replace(/\n+$/, ''), many = raw.includes('\n') && !raw.includes('\t');
+    // Una lista de varias líneas sin celdas elegidas (o pegada en la columna de título) se ofrece como filas nuevas.
+    if (many && onPasteList && st.can('addRows') && (!act || (cols[act.c] === tc && !(rg && rg.r1 > rg.r0)))) { e.preventDefault(); if (!act || confirm(tr('¿Crear filas nuevas con estas {n} líneas?\n\nAceptar: una fila por línea. Cancelar: pegar en las celdas de abajo.', { n: raw.split('\n').filter(l => l.trim()).length }))) { onPasteList(raw); return; } }
+    if (!act) return; e.preventDefault();
     const grid = e.clipboardData.getData('text/plain').replace(/\r/g, '').replace(/\n$/, '').split('\n').map(l => l.split('\t'));
     const single = grid.length === 1 && grid[0].length === 1, list = [];
     const r0 = rg ? rg.r0 : act.r, c0 = rg ? rg.c0 : act.c, rN = single && rg ? rg.r1 - rg.r0 + 1 : grid.length, cN = single && rg ? rg.c1 - rg.c0 + 1 : grid[0].length;
@@ -130,7 +134,7 @@ export function TableView({ st, rows, cols, open, onCol, onAddCol, onNew, dups, 
           {c === tc && dups.has(r.id) && <span class="dup" title={tr("Hay otro elemento con el mismo título")}>{tr("Duplicado")}</span>}</td> : <td class="na" data-rc={i + ':' + j} />)}
         {st.can('manageColumns') && <td class="na" />}</tr>))}</table>
     {!rows.length && <div class="empty">{tr("No hay filas que coincidan.")}</div>}
-    <div class="lrow0">{st.can('addRows') && <button class="addrow" onClick={() => onNew({})}>{tr("+ Nueva fila")}</button>}{folderOps && folderOps.can && folderOps.newFolder && <button class="addrow" onClick={folderOps.newFolder}>{tr("+ Nueva carpeta")}</button>}</div>
+    <div class="lrow0">{st.can('addRows') && <button class="addrow" onClick={() => onNew({})}>{tr("+ Nueva fila")}</button>}{folderOps && folderOps.can && folderOps.newFolder && <button class="addrow" onClick={folderOps.newFolder}>{tr("+ Nueva carpeta")}</button>}{onPasteList && st.can('addRows') && <button class="addrow" onClick={() => onPasteList('')}>{tr("Pegar lista de ideas…")}</button>}</div>
     <div class="kbhint muted sm">{tr("Flechas para moverte · Enter o escribir para editar · Shift para seleccionar varias · Ctrl+C / Ctrl+V · Supr para vaciar · Ctrl+Z para deshacer")}</div>
   </div></div>;
 }

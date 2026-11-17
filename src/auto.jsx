@@ -153,17 +153,19 @@ export function templates(st) {
 }
 
 export function AutomationList({ st }) {
-  const S = st.S, list = S.config.automations || [], [ed, setEd] = useState(null), [gal, setGal] = useState(false), save = () => st.saveConfig();
+  const S = st.S, list = S.config.automations || [], [ed, setEd] = useState(null), [gal, setGal] = useState(false), [q, setQ] = useState(''), save = () => st.saveConfig();
   const put = a => { const i = list.findIndex(x => x.id === a.id); S.config.automations = i >= 0 ? list.map(x => x.id === a.id ? a : x) : [...list, a]; save(); setEd(null); };
-  const tpls = gal ? templates(st) : [], CATS = { org: tr('Organización'), dates: tr('Fechas'), chk: tr('Checklists'), team: tr('Equipo') };
+  const nz = x => String(x || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, ''), words = nz(q).split(/\s+/).filter(Boolean);
+  const all = gal ? templates(st) : [], tpls = all.filter(t => words.every(w => nz(t.name + ' ' + t.desc).includes(w))), CATS = { org: tr('Organización'), dates: tr('Fechas'), chk: tr('Checklists'), team: tr('Equipo') };
   return <div>{list.map(a => <div class="auto-i"><label class="switch" title={a.enabled !== false ? tr('Activa') : tr('Pausada')}><input type="checkbox" checked={a.enabled !== false} onChange={e => { a.enabled = e.target.checked; save(); }} /><span /></label>
     <div class="grow"><b>⚡ {a.name}</b><div class="muted sm">{describe(st, a)}</div></div><button class="mini" onClick={() => setEd(a)}>{tr("Editar")}</button><button class="icon" title={tr("Eliminar")} onClick={() => { if (confirm(tr('¿Eliminar esta automatización?'))) { S.config.automations = list.filter(x => x !== a); save(); } }}>✕</button></div>)}
     {!list.length && <p class="muted">{tr("Aún no hay automatizaciones.")}</p>}
     <div class="lrow0"><button class="btn primary" onClick={() => setGal(true)}>{tr("✨ Agregar desde plantilla")}</button><button class="btn" onClick={() => setEd('new')}>{tr("＋ Crear desde cero")}</button></div>
-    {gal && <Modal title={tr("Plantillas de automatización")} onClose={() => setGal(false)} wide><div class="tpl-gal">
+    {gal && <Modal title={tr("Plantillas de automatización")} onClose={() => { setGal(false); setQ(''); }} wide><div class="tpl-gal">
+      <input class="tpl-q" autoFocus placeholder={tr("Buscar plantillas… (ej. publicar, miniatura, Short, fecha)")} value={q} onInput={e => setQ(e.target.value)} onKeyDown={e => e.key === 'Escape' && q && (e.stopPropagation(), setQ(''))} />
       <p class="hint">{tr("Pensadas para creadores de contenido y armadas con las columnas de tu proyecto. Al elegir una puedes revisarla y ajustarla antes de guardarla.")}</p>
       {Object.entries(CATS).map(([k, l]) => { const xs = tpls.filter(t => t.cat === k); return xs.length ? <div><div class="ctx-t">{l}</div>{xs.map(t => { const used = list.some(a => a.tpl === t.key); return <div class="tpl-i"><div class="grow"><b>{t.name}</b><div class="muted sm">{t.desc}</div></div>
         <button class={'mini' + (used ? '' : ' primary')} onClick={() => { setGal(false); setEd({ ...t.build(), tpl: t.key }); }}>{used ? tr('Agregar otra vez') : tr('Usar')}</button></div>; })}</div> : null; })}
-      {!tpls.length && <p class="muted">{tr("No hay plantillas que encajen con las columnas de este proyecto todavía.")}</p>}</div></Modal>}
+      {!tpls.length && <p class="muted">{all.length ? tr("Ninguna plantilla coincide con «{q}».", { q }) : tr("No hay plantillas que encajen con las columnas de este proyecto todavía.")}</p>}</div></Modal>}
     {ed && <AutomationEditor st={st} initial={ed === 'new' ? null : ed} onSave={put} onClose={() => setEd(null)} />}</div>;
 }

@@ -116,7 +116,7 @@ await step('pagina', async () => {
 await step('automatizacion', async () => {
   await click('.nav', 'Settings'); await wait(300); await click('.set nav button', 'Automations'); await wait(200);
   ok('automatizaciones de ejemplo', await p.evaluate(() => document.querySelectorAll('.auto-i').length === 2));
-  await click('.btn', '＋ New automation'); await wait(300);
+  await click('.btn', '＋ Create from scratch'); await wait(300);
   await p.evaluate(() => { const ed = document.querySelectorAll('.modal')[1]; const sels = ed.querySelectorAll('.ablock')[0].querySelectorAll('select'); sels[2].value = 'Recording'; sels[2].dispatchEvent(new Event('change', { bubbles: true })); }); await wait(100);
   await click('.modal .mini', '＋ Action'); await wait(100);
   await p.evaluate(() => { const ed = document.querySelectorAll('.modal')[1]; const blk = ed.querySelectorAll('.ablock')[2]; const s = blk.querySelectorAll('select'); s[1].value = 'Script ready'; s[1].dispatchEvent(new Event('change', { bubbles: true })); }); await wait(100);

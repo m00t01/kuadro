@@ -33,7 +33,7 @@ export function createStore(api, me, opts = {}) {
   const pageBase = {}; const dmp = new DMP();
   const subs = new Set(), opt = new Map(), newRows = new Map(), gone = new Set(), dirty = new Set(), order = new Map();
   const emit = () => { S.rev++; subs.forEach(f => f()); };
-  const toast = (msg, kind = 'info') => { const t = { id: newId(), msg, kind }; S.toasts = [...S.toasts.filter(x => x.msg !== msg).slice(-2), t]; emit(); const tm = setTimeout(() => { S.toasts = S.toasts.filter(x => x !== t); emit(); }, 6000); tm.unref && tm.unref(); };
+  const toast = (msg, kind = 'info', o = {}) => { const t = { id: newId(), msg, kind, undo: !!o.undo }; S.toasts = [...S.toasts.filter(x => x.msg !== msg).slice(-2), t]; emit(); const tm = setTimeout(() => { S.toasts = S.toasts.filter(x => x !== t); emit(); }, 6000); tm.unref && tm.unref(); };
   const fail = e => {
     if (e && e.auth) { S.authExpired = true; emit(); return; }
     if (e && e.status === 403) { S.readOnly = true; toast(tr('Tu cuenta de Google solo puede ver este Sheet; no se guardó el cambio.'), 'error'); } else toast(e && e.message || String(e), 'error');
@@ -235,9 +235,16 @@ export function createStore(api, me, opts = {}) {
     S.undo = [...S.undo, e]; emit(); return true;
   }
   const pushUndo = e => { S.undo = [...S.undo.slice(-99), e]; S.redo = []; };
-  function runInverse(e) { if (e.kind === 'tabdel') restoreTab(e.sheetId, { system: true }); if (e.kind === 'tabrestore' || e.kind === 'tabadd') { const t = titleById(e.sheetId); if (t && S.tabs[t]) deleteTab(t, { system: true }); } if (e.kind === 'tabren') { const t = titleById(e.sheetId); if (t && S.tabs[t]) renameTab(t, e.from, { system: true }); }
+  // Deshacer «mover a carpeta»: devuelve la carpeta anterior y el lugar original de cada fila.
+  async function undoFolder(e, forward) {
+    const fc = folderCol(); if (!fc || !S.tabs[e.tab]) return;
+    await setMany(e.items.map(x => ({ tab: e.tab, id: x.id, col: fc, val: forward ? x.after : x.before })), { system: true, noUndo: true });
+    if (!forward) for (const x of e.items) { const rs = S.tabs[e.tab].rows; if (x.prev && rs.some(r => r.id === x.prev)) await reorder(e.tab, x.id, x.prev, true); else if (!x.prev && rs.length) await reorder(e.tab, x.id, rs[0].id, false); }
+    await syncGroups(e.tab);
+  }
+  function runInverse(e) { if (e.kind === 'folder') { undoFolder(e, false); return; } if (e.kind === 'tabdel') restoreTab(e.sheetId, { system: true }); if (e.kind === 'tabrestore' || e.kind === 'tabadd') { const t = titleById(e.sheetId); if (t && S.tabs[t]) deleteTab(t, { system: true }); } if (e.kind === 'tabren') { const t = titleById(e.sheetId); if (t && S.tabs[t]) renameTab(t, e.from, { system: true }); }
     if (e.kind === 'delete') addRow(e.tab, e.values, { system: true, id: e.id, noUndo: true }); if (e.kind === 'create') deleteRow(e.tab, e.id, { system: true, noUndo: true }); if (e.kind === 'move') moveRow(e.to, e.id, e.from, { system: true, noUndo: true }); }
-  function runForward(e) { if (e.kind === 'tabdel' || e.kind === 'tabrestore') { const t = titleById(e.sheetId); if (e.kind === 'tabdel' && t && S.tabs[t]) deleteTab(t, { system: true }); if (e.kind === 'tabrestore') restoreTab(e.sheetId, { system: true }); } if (e.kind === 'tabadd') restoreTab(e.sheetId, { system: true }); if (e.kind === 'tabren') { const t = titleById(e.sheetId); if (t && S.tabs[t]) renameTab(t, e.to, { system: true }); }
+  function runForward(e) { if (e.kind === 'folder') { undoFolder(e, true); return; } if (e.kind === 'tabdel' || e.kind === 'tabrestore') { const t = titleById(e.sheetId); if (e.kind === 'tabdel' && t && S.tabs[t]) deleteTab(t, { system: true }); if (e.kind === 'tabrestore') restoreTab(e.sheetId, { system: true }); } if (e.kind === 'tabadd') restoreTab(e.sheetId, { system: true }); if (e.kind === 'tabren') { const t = titleById(e.sheetId); if (t && S.tabs[t]) renameTab(t, e.to, { system: true }); }
     if (e.kind === 'delete') deleteRow(e.tab, e.id, { system: true, noUndo: true }); if (e.kind === 'create') addRow(e.tab, e.values, { system: true, id: e.id, noUndo: true }); if (e.kind === 'move') moveRow(e.from, e.id, e.to, { system: true, noUndo: true }); }
   function resolveConflict(c, mine) { S.conflicts = S.conflicts.filter(x => x !== c); emit(); if (mine) setCell(c.tab, c.id, c.col, c.mine, { force: true, system: true }); }
 
@@ -266,6 +273,7 @@ export function createStore(api, me, opts = {}) {
     if (!o.system && !can('deleteRows')) { toast(tr('No tienes permiso para eliminar filas.'), 'error'); return; }
     const T = S.tabs[tab]; if (!T) return; const gk = tab + '|' + id; const old = T.rows.find(r => r.id === id);
     if (old && !o.noUndo && !o.system) { const values = {}; Object.entries(old.v).forEach(([k, x]) => { if (type(k) !== 'auto' && x !== '' && x !== false) values[k] = x; }); pushUndo({ kind: 'delete', tab, id, values }); }
+    if (old && !o.noUndo && !o.system) toast(tr('Elemento eliminado'), 'info', { undo: true });
     gone.add(gk); T.rows = T.rows.filter(r => r.id !== id); emit();
     return enqueue(async () => {
       try {
@@ -298,7 +306,7 @@ export function createStore(api, me, opts = {}) {
     if (T.idCol < 0) { toast(tr('La pestaña destino aún no está preparada para la app.'), 'error'); return; }
     const row = F.rows.find(r => r.id === id); if (!row || row.tmp) return;
     const gk = from + '|' + id, v = {}; T.header.forEach(h => { if (h && h !== 'ID') v[h] = h in row.v ? row.v[h] : (type(h) === 'checkbox' ? false : ''); });
-    if (!o.noUndo && !o.system) pushUndo({ kind: 'move', id, from, to });
+    if (!o.noUndo && !o.system) { pushUndo({ kind: 'move', id, from, to }); toast(tr('Movido a «{t}»', { t: to }), 'info', { undo: true }); }
     if (!o.system) setTimeout(() => runAutomations('move', to, id, { from, to }), 0);
     const copy = { id, tab: to, v, r: -1 }; gone.add(gk); newRows.set(id, copy); F.rows = F.rows.filter(r => r.id !== id); T.rows = [...T.rows.filter(r => r.id !== id), copy]; if (o.pos) { order.set(id, { tab: to, ...o.pos }); optPlace(T, id, o.pos.targetId, o.pos.after); } emit();
     return enqueue(async () => {
@@ -435,7 +443,7 @@ export function createStore(api, me, opts = {}) {
       await api.batchUpdate([{ updateSheetProperties: { properties: { sheetId: T.sheetId, hidden: true }, fields: 'hidden' } }]);
       await log([[name, '', String(T.sheetId), name, String(n), 'tabdel', name]]);
       if (!o.system) pushUndo({ kind: 'tabdel', sheetId: T.sheetId, title: name });
-      await reload(); toast(tr('Pestaña «{t}» eliminada. Puedes restaurarla desde Ajustes → Historial.', { t: name }));
+      await reload(); toast(tr('Pestaña «{t}» eliminada. Puedes restaurarla desde Ajustes → Historial.', { t: name }), 'info', { undo: !o.system });
       return true;
     });
   }
@@ -515,6 +523,7 @@ export function createStore(api, me, opts = {}) {
     let fc = folderCol(); if (!fc || !T.header.includes(fc)) { await enqueue(async () => { await flushFirst(); fc = await ensureFolderCol(tab); }); }
     const moving = new Set(ids), list = S.tabs[tab].rows.filter(r => moving.has(r.id) && !r.tmp); if (!list.length) return;
     const olds = [...new Set(list.map(r => String(r.v[fc] || '')).filter(Boolean))];
+    if (!o.system) { const all = S.tabs[tab].rows; pushUndo({ kind: 'folder', tab, items: list.map(r => { const i = all.indexOf(r); return { id: r.id, before: String(r.v[fc] || ''), after: name, prev: i > 0 ? all[i - 1].id : null }; }) }); }
     await setMany(list.map(r => ({ tab, id: r.id, col: fc, val: name })), { system: true });
     const rows = () => S.tabs[tab].rows;
     if (name) {
@@ -527,7 +536,7 @@ export function createStore(api, me, opts = {}) {
     }
     await syncGroups(tab);
     if (o.system) return;
-    toast(name ? tr(list.length === 1 ? 'Movido a «{n}»' : '{c} filas movidas a «{n}»', { n: name, c: list.length }) : tr('Fuera de la carpeta'));
+    toast(name ? tr(list.length === 1 ? 'Movido a «{n}»' : '{c} filas movidas a «{n}»', { n: name, c: list.length }) : tr('Fuera de la carpeta'), 'info', { undo: true });
     if (name) list.forEach(r => runAutomations('folder', tab, r.id, { to: name }));
   }
   async function renameFolder(tab, old, neu) {

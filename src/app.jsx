@@ -208,6 +208,18 @@ function DateAlerts() {
       <select value={p.scope} onChange={e => up({ scope: e.target.value })}><option value="mine">{tr("de lo que tengo asignado")}</option><option value="all">{tr("de todo el proyecto")}</option></select></div>}
     <p class="hint">{tr("Usa la columna de fecha del calendario. Lo atrasado se ve en rojo y lo que vence pronto en naranja. Lo publicado o descartado no cuenta.")}</p></div>;
 }
+// Pegar una lista: cada línea se vuelve una fila nueva (se quitan viñetas y números del inicio).
+const cleanLines = txt => String(txt || '').replace(/\r/g, '').split('\n').map(l => l.replace(/^\s*(?:[-*•·–—]|\d+[.)-]|\[[ xX]\])\s+/, '').trim()).filter(Boolean);
+function PasteList({ st, ask, tabs, onDone }) {
+  const [txt, setTxt] = useState(ask.text || ''), [tab, setTab] = useState(ask.tab || tabs[0]), [folder, setFolder] = useState(''), lines = cleanLines(txt), folders = st.foldersOf(tab);
+  const go = async () => { if (!lines.length) return; const tc = st.S.config.settings.titleCol, ids = []; for (const l of lines) { const id = st.addRow(tab, { [tc]: l }); if (id) ids.push(id); }
+    if (folder && ids.length) st.moveToFolder(tab, ids, folder); st.toast(tr(ids.length === 1 ? '1 idea agregada a «{t}»' : '{n} ideas agregadas a «{t}»', { n: ids.length, t: tab })); onDone(tab, ids); };
+  return <div><p class="hint">{tr("Pega tu lista (de tus notas, WhatsApp, un documento…). Cada línea se vuelve una fila nueva con ese título.")}</p>
+    <textarea class="paste-ta" autoFocus rows={10} value={txt} placeholder={tr("Una idea por línea")} onInput={e => setTxt(e.target.value)} />
+    <div class="lrow0" style={{ marginTop: '10px' }}><span>{tr("Pestaña")}</span><select value={tab} onChange={e => { setTab(e.target.value); setFolder(''); }}>{tabs.map(t => <option>{t}</option>)}</select>
+      {folders.length > 0 && <><span>{tr("Carpeta")}</span><select value={folder} onChange={e => setFolder(e.target.value)}><option value="">{tr("(ninguna)")}</option>{folders.map(f => <option>{f.name}</option>)}</select></>}<span class="sp" />
+      <button class="btn" onClick={() => onDone(null)}>{tr("Cancelar")}</button><button class="btn primary" disabled={!lines.length} onClick={go}>{lines.length === 1 ? tr('Crear 1 fila') : tr('Crear {n} filas', { n: lines.length })}</button></div></div>;
+}
 // Color de fondo de una columna del kanban.
 const COLBG = ['', 'gray', 'brown', 'orange', 'yellow', 'green', 'blue', 'purple', 'pink', 'red'];
 const COLBG_NAME = { '': tr('Sin color'), gray: tr('Gris'), brown: tr('Café'), orange: tr('Naranja'), yellow: tr('Amarillo'), green: tr('Verde'), blue: tr('Azul'), purple: tr('Morado'), pink: tr('Rosa'), red: tr('Rojo') };
@@ -278,13 +290,36 @@ function ColList({ label, all, value, onChange, hint }) {
   const v = value || [];
   return <div class="f">{label}<div class="checks">{all.map(c => <label><input type="checkbox" checked={v.includes(c)} onChange={e => onChange(e.target.checked ? [...v, c] : v.filter(x => x !== c))} />{c}</label>)}</div>{hint && <p class="hint">{hint}</p>}</div>;
 }
+// Íconos del menú de ajustes.
+const SIP = {
+  gear: 'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z',
+  cols: 'M4 4h16v16H4zM9.5 4v16M14.5 4v16', tpl: 'M6 3h9l4 4v14H6zM15 3v4h4M9 12h7M9 16h5', chk: 'M9 11l2.5 2.5L16 9M4 4h16v16H4z',
+  shield: 'M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z', users: 'M16 20v-1.5a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4V20M9.5 11a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7zM21 20v-1.5a4 4 0 0 0-3-3.9M16 4.1a3.5 3.5 0 0 1 0 6.8',
+  bolt: 'M13 2L4 14h7l-1 8 9-12h-7z', play: 'M3 6a3 3 0 0 1 3-3h12a3 3 0 0 1 3 3v12a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3zM10 8.5v7l6-3.5z',
+  brush: 'M9.5 14.5l-3 3a2.1 2.1 0 0 1-3-3l3-3M14 4l6 6-8.5 8.5-6-6z', clock: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 7v5l3 2',
+};
+const SI = ({ n }) => <svg class="si" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><path d={SIP[n]} /></svg>;
 function Settings({ st, onClose, onCol, onAddCol, start }) {
   const S = st.S, c = S.config, [sec, setSec] = useState(start || 'general'), [rid, setRid] = useState(c.roles[0]?.id), [uopen, setUopen] = useState(null), [nu, setNu] = useState({ email: '', name: '' }), [tid, setTid] = useState(0);
   const admin = st.can('admin'), save = () => st.saveConfig(); const names = [...new Set(S.order.flatMap(t => S.tabs[t].header))].filter(h => h && h !== 'ID');
-  const secs = [['general', tr('General'), admin], ['cols', tr('Columnas'), true], ['roles', tr('Roles'), admin], ['users', tr('Usuarios'), admin], ['tpl', tr('Plantillas'), admin], ['auto', tr('Automatizaciones'), admin], ['chk', tr('Checklists'), admin], ['yt', 'YouTube', admin], ['look', tr('Apariencia y atajos'), true], ['hist', tr('Historial'), st.can('viewHistory')]].filter(x => x[2]);
+  // Menú lateral fijo, con íconos, grupos y búsqueda (también busca por palabras clave de lo que hay dentro).
+  const secs = [
+    ['general', tr('General'), admin, 'gear', 'p', 'titulo kanban calendario galeria fecha imagen rol dueño title owner date'], ['cols', tr('Columnas'), true, 'cols', 'p', 'columna tipo opciones desplegable column type options dropdown'],
+    ['tpl', tr('Plantillas'), admin, 'tpl', 'p', 'plantilla nueva pagina template'], ['chk', tr('Checklists'), admin, 'chk', 'p', 'tareas checklist pendientes tasks'],
+    ['roles', tr('Roles'), admin, 'shield', 't', 'permisos roles permissions'], ['users', tr('Usuarios'), admin, 'users', 't', 'personas correo equipo people email team'],
+    ['auto', tr('Automatizaciones'), admin, 'bolt', 'a', 'automatizacion reglas cuando entonces plantillas automation rules'], ['yt', 'YouTube', admin, 'play', 'a', 'clave api vistas miniatura key views'],
+    ['look', tr('Apariencia y atajos'), true, 'brush', 'y', 'tema fondo colores idioma atajo bandeja actualizaciones fechas avisos theme background language shortcut tray updates alerts'],
+    ['hist', tr('Historial'), st.can('viewHistory'), 'clock', 'h', 'historial restaurar deshacer eliminado history restore undo deleted'],
+  ].filter(x => x[2]);
+  const [sq, setSq] = useState(''), nq = norm(sq.trim()), shown = nq ? secs.filter(x => nq.split(/\s+/).every(w => norm(x[1] + ' ' + x[5]).includes(w))) : secs;
+  const GROUPS = { p: tr('Proyecto'), t: tr('Equipo'), a: tr('Automatización'), y: tr('Para ti'), h: '' };
   const role = c.roles.find(r => r.id === rid), sel = (k, label, types) => <label class="f">{label}<select value={c.settings[k]} onChange={e => { c.settings[k] = e.target.value; save(); }}><option value="">{tr("(ninguna)")}</option>{names.filter(n => !types || types.includes(st.type(n))).map(n => <option>{n}</option>)}</select></label>;
   const tpl = c.templates[tid];
-  return <Modal title={tr("Ajustes del proyecto")} onClose={onClose} wide><div class="set"><nav>{secs.map(([k, l]) => <button class={sec === k ? 'on' : ''} onClick={() => setSec(k)}>{l}</button>)}</nav><div class="set-b">
+  const cur0 = secs.find(x => x[0] === sec) || secs[0];
+  return <Modal title={tr("Ajustes del proyecto")} onClose={onClose} wide cls="settings"><div class="set"><nav>
+      <input class="set-q" placeholder={tr("Buscar")} value={sq} onInput={e => setSq(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && shown[0]) setSec(shown[0][0]); if (e.key === 'Escape' && sq) { e.stopPropagation(); setSq(''); } }} />
+      {shown.map((x, i) => [i > 0 && x[4] !== shown[i - 1][4] && <hr />, <button class={sec === x[0] ? 'on' : ''} onClick={() => setSec(x[0])}><SI n={x[3]} />{x[1]}</button>])}
+      {!shown.length && <p class="muted sm" style={{ padding: '6px 10px' }}>{tr("Sin resultados.")}</p>}</nav><div class="set-b"><h3 class="set-t">{cur0 ? cur0[1] : ''}</h3>
     {sec === 'general' && <div>{sel('titleCol', tr('Columna de título (la que se abre como página)'))}{sel('groupCol', tr('Columna que agrupa el kanban'), ['select', 'person'])}{sel('dateCol', tr('Columna de fecha del calendario'), ['date'])}{sel('imageCol', tr('Columna de imagen de la galería'), ['image', 'url'])}
       <label class="f">{tr("Rol para quien no está en la lista de usuarios")}<select value={c.defaultRoleId} onChange={e => { c.defaultRoleId = e.target.value; save(); }}>{c.roles.map(r => <option value={r.id}>{r.name}</option>)}</select></label>
       <p class="hint">{tr('Dueño del proyecto:')} {c.owner}. {tr('El dueño siempre tiene todos los permisos.')}</p></div>}
@@ -321,7 +356,7 @@ function Workspace({ st, name, onHome }) {
   const S = useStore(st), pk = 'ui:' + name + ':' + S.me.email; const saved0 = useMemo(() => LS.get(pk, {}), []);
   const [view, setView] = useState(saved0.view || 'table'), [tab, setTab] = useState(saved0.tab || '*'), [search, setSearch] = useState(''), [filters, setFilters] = useState([]), [sort, setSort] = useState({ col: '', dir: 1 }), [mine, setMine] = useState(false);
   const [prefs, setPrefsS] = useState(saved0.prefs || {}), setPrefs = p => setPrefsS(x => ({ ...x, ...p }));
-  const [menu, setMenu] = useState(null), [dropTab, setDropTab] = useState(null), [openId, setOpenId] = useState(null), [settings, setSettings] = useState(null), [colEdit, setColEdit] = useState(null), [addCol, setAddCol] = useState(null), [pal, setPal] = useState(false), [pq, setPq] = useState(''), [phi, setPhi] = useState(0), [fpop, setFpop] = useState(false), [tplAsk, setTplAsk] = useState(null), [views, setViews] = useState(saved0.views || []), [vname, setVname] = useState(null), [newTab, setNewTab] = useState(null), [renTab, setRenTab] = useState(null), [folderAsk, setFolderAsk] = useState(null);
+  const [menu, setMenu] = useState(null), [dropTab, setDropTab] = useState(null), [openId, setOpenId] = useState(null), [settings, setSettings] = useState(null), [colEdit, setColEdit] = useState(null), [addCol, setAddCol] = useState(null), [pal, setPal] = useState(false), [pq, setPq] = useState(''), [phi, setPhi] = useState(0), [fpop, setFpop] = useState(false), [tplAsk, setTplAsk] = useState(null), [views, setViews] = useState(saved0.views || []), [vname, setVname] = useState(null), [newTab, setNewTab] = useState(null), [renTab, setRenTab] = useState(null), [folderAsk, setFolderAsk] = useState(null), [pasteList, setPasteList] = useState(null);
   const [sel, setSel] = useState(new Set()), [colsPop, setColsPop] = useState(false), [inbox, setInbox] = useState(false), [seen, setSeen] = useState(LS.get('seen:' + pk, Date.now() - 864e5 * 3));
   const fref = useRef(), cref = useRef();
   useEffect(() => { const t = setTimeout(() => { const ap = alertPrefs(); if (!ap.on || !native || !native.notify) return; const today = new Date().toDateString(); try { if (localStorage.getItem('kuadro-due-day:' + name) === today) return; } catch { }
@@ -352,6 +387,12 @@ function Workspace({ st, name, onHome }) {
   const ordered = [s.titleCol, ...baseCols.filter(c => c !== s.titleCol)].filter(c => baseCols.includes(c));
   const po = (prefs.order || []).filter(c => ordered.includes(c)); const tableCols = [...po, ...ordered.filter(c => !po.includes(c))].filter(c => !(prefs.hidden || []).includes(c));
   let rows = st.allRows(cur === '*' ? null : cur).filter(r => (!search || Object.values(r.v).some(x => String(x).toLowerCase().includes(search.toLowerCase())) || norm((S.pages[r.id] || {}).md || '').includes(norm(search))) && (!mine || (people.some(c => r.v[c] === name_) && !DONE.test(r.v[s.groupCol] || ''))) && filters.every(f => match(r, f)));
+  // Filtros rápidos fijados: dentro de una misma columna basta con uno; entre columnas deben cumplirse todos.
+  const qk = q => q.col + '\u0001' + q.val, quick = prefs.quick || [], quickOn = new Set(prefs.quickOn || []);
+  const pinQuick = (col, val) => { const q = { col, val }; setPrefs({ quick: [...quick.filter(x => qk(x) !== qk(q)), q], quickOn: [...new Set([...quickOn, qk(q)])] }); };
+  const unpinQuick = (col, val) => { const k = col + '\u0001' + val; setPrefs({ quick: quick.filter(x => qk(x) !== k), quickOn: [...quickOn].filter(x => x !== k) }); };
+  { const act = quick.filter(q => quickOn.has(qk(q))), byCol = {}; act.forEach(q => (byCol[q.col] = byCol[q.col] || []).push(q.val));
+    if (act.length) rows = rows.filter(r => Object.entries(byCol).every(([c, vs]) => vs.some(v => match(r, { col: c, op: 'is', val: v })))); }
   const hiddenRows = new Set(prefs.hiddenRows || []), hiddenHere = hiddenRows.size ? rows.filter(r => hiddenRows.has(r.id)).length : 0;
   if (hiddenHere && !prefs.showHidden) rows = rows.filter(r => !hiddenRows.has(r.id));
   const hideRows = ids => { setPrefs({ hiddenRows: [...new Set([...(prefs.hiddenRows || []), ...ids])] }); setSel(new Set()); st.toast(ids.length === 1 ? tr('Fila oculta en tu vista. Puedes mostrarla desde la barra de arriba.') : tr('{n} filas ocultas en tu vista. Puedes mostrarlas desde la barra de arriba.', { n: ids.length })); };
@@ -394,7 +435,30 @@ function Workspace({ st, name, onHome }) {
   const onNew = (values = {}, card) => S.config.templates.length ? setTplAsk({ values, card }) : create(values, card);
   const pTitles = pq.trim() ? st.allRows().filter(r => norm(r.v[s.titleCol]).includes(norm(pq))).slice(0, 10) : [];
   const pBody = pq.trim() ? st.searchPages(pq, st.allRows()).filter(x => !pTitles.includes(x.row)).slice(0, 8) : [];
-  const pAll = [...pTitles.map(r => ({ row: r })), ...pBody];
+  // Acciones del Ctrl+K: se filtran por lo que escribes; sin texto se muestran las más usadas.
+  const ctab = cur === '*' ? tabs[0] : cur;
+  const cmds = [
+    st.can('addRows') && { k: 'new', label: tr('Nueva fila'), hint: ctab, kw: 'nuevo crear agregar add row', run: () => onNew({}) },
+    st.can('addRows') && { k: 'paste', label: tr('Pegar una lista de ideas'), kw: 'importar varias lineas paste list', run: () => setPasteList({ tab: ctab, text: '' }) },
+    st.can('moveCards') && view === 'table' && cur !== '*' && { k: 'folder', label: tr('Nueva carpeta'), kw: 'folder crear', run: () => setFolderAsk({ tab: cur, ids: [], name: '' }) },
+    st.can('manageTabs') && { k: 'tab', label: tr('Nueva pestaña'), kw: 'tab crear', run: () => setNewTab('') },
+    ...VIEWS.map(([k, l]) => ({ k: 'v' + k, label: tr('Ir a {x}', { x: l }), kw: 'vista view ' + k, run: () => setView(k) })),
+    ...tabs.map(t => ({ k: 't' + t, label: tr('Abrir pestaña «{t}»', { t }), kw: 'pestaña tab ir', run: () => setTab(t) })),
+    { k: 'inbox', label: tr('Abrir la bandeja'), kw: 'inbox avisos notificaciones', run: () => setInbox(true) },
+    { k: 'mine', label: mine ? tr('Ver todo (quitar «Mis tareas»)') : tr('Ver solo mis tareas'), kw: 'mis pendientes my tasks asignado', run: () => setMine(!mine) },
+    (filters.length || (prefs.quickOn || []).length) && { k: 'clr', label: tr('Quitar todos los filtros'), kw: 'filtros limpiar clear', run: () => { setFilters([]); setPrefs({ quickOn: [] }); } },
+    view === 'table' && { k: 'nums', label: prefs.hideNums ? tr('Mostrar números de fila') : tr('Ocultar números de fila'), kw: 'numeros row numbers', run: () => setPrefs({ hideNums: !prefs.hideNums }) },
+    view === 'table' && { k: 'rowh', label: prefs.rowH === 'compact' ? tr('Filas: ajustar al contenido') : tr('Filas: una sola línea'), kw: 'alto altura height compacto', run: () => setPrefs({ rowH: prefs.rowH === 'compact' ? '' : 'compact' }) },
+    view === 'table' && prefs.groupBy && { k: 'ungroup', label: tr('Quitar agrupación'), kw: 'agrupar group', run: () => setPrefs({ groupBy: '' }) },
+    ...(view === 'table' ? baseCols.filter(c => ['select', 'multi', 'person', 'checkbox'].includes(st.type(c)) && c !== prefs.groupBy).map(c => ({ k: 'g' + c, label: tr('Agrupar por «{c}»', { c }), kw: 'agrupar group by', run: () => setPrefs({ groupBy: c }) })) : []),
+    st.S.undo.length && { k: 'undo', label: tr('Deshacer'), hint: 'Ctrl+Z', kw: 'undo', run: () => st.undoLast() },
+    st.S.redo.length && { k: 'redo', label: tr('Rehacer'), hint: 'Ctrl+Y', kw: 'redo', run: () => st.redoLast() },
+    ...[['general', tr('Ajustes')], ['auto', tr('Automatizaciones')], ['chk', tr('Checklists')], ['cols', tr('Columnas')], ['hist', tr('Historial')], ['look', tr('Apariencia y atajos')], ['yt', 'YouTube'], ['roles', tr('Roles')], ['users', tr('Usuarios')]].map(([k, l]) => ({ k: 's' + k, label: k === 'general' ? tr('Abrir ajustes') : tr('Ajustes → {x}', { x: l }), kw: 'settings ajustes configuracion ' + k, run: () => setSettings(k) })),
+    native && native.checkUpdates && { k: 'upd', label: tr('Buscar actualizaciones'), kw: 'update version', run: () => { native.checkUpdates(); setSettings('look'); } },
+  ].filter(Boolean);
+  const cq = norm(pq.trim()), pCmds = cq ? cmds.filter(c => cq.split(/\s+/).every(w => norm(c.label + ' ' + (c.kw || '') + ' ' + (c.hint || '')).includes(w))).slice(0, 8) : cmds.filter(c => ['new', 'paste', 'folder', 'tab', 'inbox', 'mine', 'sauto'].includes(c.k));
+  const pAll = [...pCmds.map(c => ({ cmd: c })), ...pTitles.map(r => ({ row: r })), ...pBody];
+  const runP = x => { setPal(false); if (x.cmd) x.cmd.run(); else open(x.row); };
   const applyView = v => { setView(v.view); setTab(v.tab); setSearch(v.search || ''); setFilters(v.filters || []); setSort(v.sort || { col: '', dir: 1 }); setMine(!!v.mine); if (v.prefs) setPrefs(v.prefs); };
   const items = inboxItems(st), unread = items.filter(i => Date.parse(i.at) > seen).length;
   const markSeen = () => { const t = Date.now(); setSeen(t); LS.set('seen:' + pk, t); };
@@ -405,6 +469,10 @@ function Workspace({ st, name, onHome }) {
     const others = tabs.filter(t => t !== r.tab && S.tabs[t].idCol >= 0), ct = col && st.type(col);
     return { title: title.slice(0, 48) || tr('Sin título'), items: [
       st.can('openPages') && { label: tr('Abrir'), hint: 'Ctrl+Enter', onClick: () => open(r) },
+      ...(() => { if (!col || col === s.titleCol || ['url', 'image'].includes(ct)) return []; const raw = String(r.v[col] ?? ''), v = ct === 'multi' ? splitMulti(raw)[0] || '' : ct === 'checkbox' ? (raw === 'true' ? 'true' : '') : raw; if (!v) return [];
+        const shown = ct === 'checkbox' ? col + ' ✓' : v.length > 28 ? v.slice(0, 28) + '…' : v, pinnedQ = (prefs.quick || []).some(x => x.col === col && x.val === v);
+        return ['sep', { label: tr('Filtrar por «{v}»', { v: shown }), onClick: () => setFilters([...filters.filter(f => !(f.col === col && f.val === v)), { col, op: 'is', val: v }]) },
+          pinnedQ ? { label: tr('Quitar «{v}» de filtros rápidos', { v: shown }), onClick: () => unpinQuick(col, v) } : { label: tr('📌 Fijar «{v}» como filtro rápido', { v: shown }), onClick: () => pinQuick(col, v) }]; })(),
       'sep',
       ok && s.groupCol && T.header.includes(s.groupCol) && (st.canEditCol(s.groupCol) || st.can('moveCards')) && { label: tr('Cambiar ') + s.groupCol.toLowerCase(), sub: sel_(s.groupCol, r) },
       ...pcols.filter(c => ok && st.canEditCol(c)).map(c => ({ label: tr('Asignar ') + c.toLowerCase(), sub: [...optionsOf(st, c).map(o => ({ label: o.v, check: r.v[c] === o.v, onClick: () => st.setCell(r.tab, r.id, c, o.v) })), ...(r.v[c] ? [{ label: tr('Quitar asignación'), onClick: () => st.setCell(r.tab, r.id, c, '') }] : [])] })),
@@ -579,10 +647,14 @@ function Workspace({ st, name, onHome }) {
       {!S.prepared && <div class="banner">{tr("Este Sheet aún no está preparado para la app: falta la columna ID y las pestañas ocultas de configuración. Mientras tanto es de solo lectura.")}{' '}<button class="btn primary" onClick={() => st.prepare()}>{tr("Preparar este Sheet")}</button></div>}
       {S.authExpired && <div class="banner">{tr("Tu sesión de Google caducó; tus cambios no se guardarán hasta que vuelvas a entrar. ")}<button class="btn primary" onClick={() => st.ui.relogin()}>{tr("Volver a iniciar sesión")}</button></div>}
       {S.readOnly && <div class="banner">{tr("Tu cuenta de Google solo tiene permiso de lectura en este Sheet.")}</div>}
+      {quick.length > 0 && <div class="qbar"><span class="muted sm">{tr("Filtros rápidos")}</span>{quick.map(q => { const on = quickOn.has(qk(q)), oc = ['select', 'multi'].includes(st.type(q.col)) ? colorOf(st, q.col, q.val) : null;
+        return <span class={'qchip' + (on ? ' on' : '')} title={tr('Clic: activar o desactivar · clic derecho: quitar')} onClick={() => setPrefs({ quickOn: on ? [...quickOn].filter(x => x !== qk(q)) : [...quickOn, qk(q)] })} onContextMenu={e => { e.preventDefault(); setMenu({ x: e.clientX, y: e.clientY, title: q.col, items: [{ label: tr('Quitar de filtros rápidos'), onClick: () => unpinQuick(q.col, q.val) }] }); }}>
+          {oc && <i class={'dot kb-dot kb-' + oc} />}{q.val === 'true' && st.type(q.col) === 'checkbox' ? q.col + ' ✓' : q.val}<em>{q.col}</em></span>; })}
+        {quickOn.size > 0 && <button class="mini" onClick={() => setPrefs({ quickOn: [] })}>{tr("Quitar")}</button>}</div>}
       {hiddenHere > 0 && <div class="hidbar">{prefs.showHidden ? tr('Mostrando {n} filas ocultas (en gris).', { n: hiddenHere }) : tr(hiddenHere === 1 ? '1 fila oculta en tu vista.' : '{n} filas ocultas en tu vista.', { n: hiddenHere })}
         <button class="mini" onClick={() => setPrefs({ showHidden: !prefs.showHidden })}>{prefs.showHidden ? tr('Volver a ocultarlas') : tr('Ver')}</button>
         <button class="mini" onClick={() => setPrefs({ hiddenRows: (prefs.hiddenRows || []).filter(id => !st.allRows(cur === '*' ? null : cur).some(r => r.id === id)), showHidden: false })}>{tr('Mostrar todas de nuevo')}</button></div>}
-      <div class="body">{view === 'table' && <TableView {...P} rows={rows} fold={fold} folderOps={folderOps} onRowDrop={onRowDrop} colorOf={rowColorOf} hiddenRows={prefs.showHidden ? hiddenRows : null} cols={tableCols} onCol={setColEdit} onAddCol={() => setAddCol({ name: '', type: 'text', all: true })} sel={sel} setSel={setSel} />}{view === 'kanban' && <KanbanView {...P} sorted={!!sort.col} onColMenu={kcolMenu} />}{view === 'gallery' && <GalleryView {...P} />}{view === 'calendar' && <CalendarView {...P} />}{view === 'dash' && <DashView {...P} />}</div>
+      <div class="body">{view === 'table' && <TableView {...P} onPasteList={text => setPasteList({ tab: cur === '*' ? tabs[0] : cur, text })} rows={rows} fold={fold} folderOps={folderOps} onRowDrop={onRowDrop} colorOf={rowColorOf} hiddenRows={prefs.showHidden ? hiddenRows : null} cols={tableCols} onCol={setColEdit} onAddCol={() => setAddCol({ name: '', type: 'text', all: true })} sel={sel} setSel={setSel} />}{view === 'kanban' && <KanbanView {...P} sorted={!!sort.col} onColMenu={kcolMenu} />}{view === 'gallery' && <GalleryView {...P} />}{view === 'calendar' && <CalendarView {...P} />}{view === 'dash' && <DashView {...P} />}</div>
       {view === 'table' && <BulkBar st={st} rows={rows} sel={sel} setSel={setSel} onMenuAt={bulkMenu} />}</main>
     {inbox && <Inbox st={st} items={items} seen={seen} open={open} onClose={() => { setInbox(false); markSeen(); }} onSeen={markSeen} />}
     {openRow && <RowPage key={openRow.id} st={st} row={openRow} dup={dups.has(openRow.id)} onClose={() => setOpenId(null)} onMoved={to => setOpenId({ tab: to, id: openRow.id })} />}
@@ -592,17 +664,18 @@ function Workspace({ st, name, onHome }) {
       <label class="f">{tr("Tipo")}<select value={addCol.type} onChange={e => setAddCol({ ...addCol, type: e.target.value })}>{Object.entries(TYPES).map(([k, l]) => <option value={k}>{l}</option>)}</select></label>
       {cur !== '*' && tabs.length > 1 && <label class="chk"><input type="checkbox" checked={addCol.all} onChange={e => setAddCol({ ...addCol, all: e.target.checked })} />{tr("Agregar en todas las pestañas")}</label>}
       <div class="row-end"><button class="btn primary" onClick={() => { if (addCol.name.trim()) { st.addColumn(addCol.name, addCol.type, addCol.all || cur === '*' ? S.order : [cur]); setAddCol(null); } }}>{tr("Crear columna")}</button></div></Modal>}
-    {folderAsk && <Modal title={tr("Nueva carpeta")} onClose={() => setFolderAsk(null)}><FolderForm st={st} ask={folderAsk} onDone={() => { setFolderAsk(null); if (folderAsk.ids && folderAsk.ids.length) setSel(new Set()); }} /></Modal>}
+    {pasteList && <Modal title={tr("Pegar una lista de ideas")} onClose={() => setPasteList(null)}><PasteList st={st} ask={pasteList} tabs={tabs.filter(t => S.tabs[t].idCol >= 0)} onDone={(tab, ids) => { setPasteList(null); if (tab && tab !== cur && cur !== '*') setTab(tab); }} /></Modal>}
+      {folderAsk && <Modal title={tr("Nueva carpeta")} onClose={() => setFolderAsk(null)}><FolderForm st={st} ask={folderAsk} onDone={() => { setFolderAsk(null); if (folderAsk.ids && folderAsk.ids.length) setSel(new Set()); }} /></Modal>}
       {tplAsk && <Modal title={tr("Nuevo elemento")} onClose={() => setTplAsk(null)}><div class="lrow click" onClick={() => { create(tplAsk.values, tplAsk.card); setTplAsk(null); }}><b>{tr("En blanco")}</b></div>{S.config.templates.map(t => <div class="lrow click" onClick={() => { create(tplAsk.values, tplAsk.card, t); setTplAsk(null); }}><b>{t.name}</b><span class="muted">{tr("Plantilla")}</span></div>)}</Modal>}
-    {pal && <div class="overlay top" onMouseDown={e => { if (e.target === e.currentTarget) setPal(false); }}><div class="palette"><input ref={af} placeholder={tr("Buscar en títulos y guiones de todas las pestañas…")} value={pq} onInput={e => { setPq(e.target.value); setPhi(0); }}
-      onKeyDown={e => { if (e.key === 'Escape') setPal(false); if (e.key === 'ArrowDown') { e.preventDefault(); setPhi(Math.min(phi + 1, pAll.length - 1)); } if (e.key === 'ArrowUp') { e.preventDefault(); setPhi(Math.max(phi - 1, 0)); } if (e.key === 'Enter' && pAll[phi]) { open(pAll[phi].row); setPal(false); } }} />
-      {pAll.map((x, i) => <div class={'pop-i pal-i' + (i === phi ? ' hi' : '')} onMouseEnter={() => setPhi(i)} onClick={() => { open(x.row); setPal(false); }}><div class="grow"><div>{icons[x.row.id] && <span class="ticon">{icons[x.row.id]}</span>}{x.row.v[s.titleCol] || tr('Sin título')}</div>{x.snippet && <div class="muted sm">…{x.snippet}…</div>}</div><span class="muted sm">{x.row.tab}{s.groupCol && x.row.v[s.groupCol] ? ' · ' + x.row.v[s.groupCol] : ''}</span></div>)}
-      {!pq.trim() && VIEWS.map(([k, l]) => <div class="pop-i" onClick={() => { setView(k); setPal(false); }}>{tr('Ir a {x}', { x: l })}</div>)}{pq.trim() && !pAll.length && <div class="pop-empty">{tr("Sin resultados.")}</div>}</div></div>}
+    {pal && <div class="overlay top" onMouseDown={e => { if (e.target === e.currentTarget) setPal(false); }}><div class="palette"><input ref={af} placeholder={tr("Busca un video o escribe una acción (nueva fila, carpeta, agrupar…)")} value={pq} onInput={e => { setPq(e.target.value); setPhi(0); }}
+      onKeyDown={e => { if (e.key === 'Escape') setPal(false); if (e.key === 'ArrowDown') { e.preventDefault(); setPhi(Math.min(phi + 1, pAll.length - 1)); } if (e.key === 'ArrowUp') { e.preventDefault(); setPhi(Math.max(phi - 1, 0)); } if (e.key === 'Enter' && pAll[phi]) runP(pAll[phi]); }} />
+      {pAll.map((x, i) => x.cmd ? <div class={'pop-i pal-i pal-cmd' + (i === phi ? ' hi' : '')} onMouseEnter={() => setPhi(i)} onClick={() => runP(x)}><span class="pal-ic">⌘</span><div class="grow">{x.cmd.label}</div>{x.cmd.hint && <span class="muted sm">{x.cmd.hint}</span>}</div> : <div class={'pop-i pal-i' + (i === phi ? ' hi' : '')} onMouseEnter={() => setPhi(i)} onClick={() => runP(x)}><div class="grow"><div>{icons[x.row.id] && <span class="ticon">{icons[x.row.id]}</span>}{x.row.v[s.titleCol] || tr('Sin título')}</div>{x.snippet && <div class="muted sm">…{x.snippet}…</div>}</div><span class="muted sm">{x.row.tab}{s.groupCol && x.row.v[s.groupCol] ? ' · ' + x.row.v[s.groupCol] : ''}</span></div>)}
+      {pq.trim() && !pAll.length && <div class="pop-empty">{tr("Sin resultados.")}</div>}</div></div>}
     {S.conflicts[0] && <Modal title={tr("Cambio en conflicto")} onClose={() => st.resolveConflict(S.conflicts[0], false)}><p>{tr('Alguien cambió «{c}» de «{x}» en el Sheet mientras lo editabas.', { c: S.conflicts[0].col, x: S.conflicts[0].title })}</p>
       <p>{tr("En el Sheet:")}{' '}<b>{String(S.conflicts[0].theirs) || tr('(vacío)')}</b><br />{tr("Tu cambio:")}{' '}<b>{String(S.conflicts[0].mine) || tr('(vacío)')}</b></p>
       <div class="row-end"><button class="btn" onClick={() => st.resolveConflict(S.conflicts[0], false)}>{tr("Conservar el del Sheet")}</button><button class="btn primary" onClick={() => st.resolveConflict(S.conflicts[0], true)}>{tr("Usar mi cambio")}</button></div></Modal>}
     {menu && <ContextMenu menu={menu} onClose={() => setMenu(null)} />}
-    <div class="toasts">{S.toasts.map(t => <div class={'toast ' + t.kind}>{t.msg}</div>)}</div></div>;
+    <div class="toasts">{S.toasts.map(t => <div class={'toast ' + t.kind}>{t.msg}{t.undo && <button class="t-undo" onClick={() => { S.toasts = S.toasts.filter(x => x !== t); st.undoLast(); }}>{tr('Deshacer')}</button>}</div>)}</div></div>;
 }
 
 const sheetIdOf = u => { const m = String(u).match(/\/spreadsheets\/d\/([\w-]{20,})/); return m ? m[1] : (/^[\w-]{30,}$/.test(String(u).trim()) ? String(u).trim() : null); };
