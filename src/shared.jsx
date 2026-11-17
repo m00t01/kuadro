@@ -3,7 +3,17 @@ import { t as tr, LOCALE } from './i18n.js';
 export const native = typeof window !== 'undefined' ? window.native : null;
 export const LS = { get: (k, d) => { try { const v = JSON.parse(localStorage.getItem(k)); return v ?? d; } catch { return d; } }, set: (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch { } } };
 export const ICON = { text: tr('Aa'), number: '#', select: '◉', multi: '☰', date: '▦', checkbox: '☑', url: '↗', person: '☺', image: '▣', auto: '№' };
-export const DONE = /publicad|descartad|finalizad|hecho|complet|cancel/i;
+export const DONE = /publicad|published|subid|uploaded|descartad|discard|finalizad|finished|hecho|done|complet|cancel/i;
+// Avisos de fechas (preferencia personal en esta computadora).
+export const alertPrefs = () => { try { return { on: true, days: 2, scope: 'mine', ...JSON.parse(localStorage.getItem('kuadro-alerts') || '{}') }; } catch { return { on: true, days: 2, scope: 'mine' }; } };
+export const setAlertPrefs = p => { try { localStorage.setItem('kuadro-alerts', JSON.stringify({ ...alertPrefs(), ...p })); } catch { } };
+const todayStr = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+// Estado de la fecha de un elemento: atrasado (late), pronto (soon) o nada. Lo terminado no cuenta.
+export function dueOf(st, r, days = alertPrefs().days) {
+  const s = st.S.config.settings, d = String(r.v[s.dateCol] || '').slice(0, 10); if (!s.dateCol || !/^\d{4}-\d{2}-\d{2}$/.test(d) || DONE.test(String(r.v[s.groupCol] || ''))) return null;
+  const n = Math.round((new Date(d + 'T12:00:00') - new Date(todayStr() + 'T12:00:00')) / 86400000);
+  return n < 0 ? { late: true, n: -n } : n <= days ? { soon: true, n } : null;
+}
 export const iso = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 export const when = x => { const d = new Date(x); return isNaN(d) ? String(x || '') : d.toLocaleString(LOCALE, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }); };
 export const ago = x => { const s = (Date.now() - Date.parse(x)) / 1000; if (isNaN(s)) return ''; if (s < 60) return tr('hace un momento'); if (s < 3600) return tr('hace {n} min', { n: Math.round(s / 60) }); if (s < 86400) return tr('hace {n} h', { n: Math.round(s / 3600) }); if (s < 86400 * 7) return tr('hace {n} d', { n: Math.round(s / 86400) }); return when(x); };

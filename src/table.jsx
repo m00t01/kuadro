@@ -2,7 +2,7 @@
 // Además: columnas con ancho ajustable, reordenables y ocultables (por persona), título fijo y selección de filas.
 import { useState, useEffect, useRef } from 'preact/hooks';
 import { Field } from './ui.jsx';
-import { ICON, parseFor, copyText } from './shared.jsx';
+import { ICON, parseFor, copyText, dueOf } from './shared.jsx';
 import { fmtDate, urls } from './util.js';
 import { t as tr } from './i18n.js';
 
@@ -121,7 +121,7 @@ export function TableView({ st, rows, cols, open, onCol, onAddCol, onNew, dups, 
           onDrop={e => { const d = dragRow.current; if (!d || !dropAt) return; e.preventDefault(); const at = dropAt; setDropAt(null); dragRow.current = null; if (d.id !== r.id && onRowDrop) onRowDrop(d, r, at.after); }}>
         <td class={'num sticky' + ((st.can('moveTabs') || (folderOps && folderOps.can)) && !r.tmp ? ' grab' : '') + (fold && fold.info.get(r.id) ? ' inf' + (fold.info.get(r.id).last ? ' inf-last' : '') : '')} draggable={(st.can('moveTabs') || (folderOps && folderOps.can)) && !r.tmp} onClick={e => clickNum(e, i)} title={tr("Clic: seleccionar · Ctrl/Shift: varias · arrastra para reacomodar, o suéltala en una pestaña o carpeta")} onDragStart={e => { e.dataTransfer.setData('text/plain', r.tab + '|' + r.id); e.dataTransfer.setData('text/kuadro-row', r.id); e.dataTransfer.effectAllowed = 'move'; dragRow.current = r; }} onDragEnd={() => { dragRow.current = null; setDropAt(null); }}>
           {sel.has(r.id) ? <input type="checkbox" checked readOnly /> : <><span class="n">{i + 1}</span><span class="h">⠿</span></>}</td>
-        {cols.map((c, j) => c in r.v ? <td data-col={c} data-rc={i + ':' + j} style={{ left: left(c) }} class={(c === tc ? 'title ' : '') + fz(c) + (act && act.r === i && act.c === j ? 'act ' : '') + (inRange(i, j) && rg && (rg.r0 !== rg.r1 || rg.c0 !== rg.c1) ? 'inrg' : '')}
+        {cols.map((c, j) => c in r.v ? <td data-col={c} data-rc={i + ':' + j} style={{ left: left(c) }} class={(c === tc ? 'title ' : '') + fz(c) + (act && act.r === i && act.c === j ? 'act ' : '') + (inRange(i, j) && rg && (rg.r0 !== rg.r1 || rg.c0 !== rg.c1) ? 'inrg ' : '') + (c === st.S.config.settings.dateCol ? (d => d ? (d.late ? 'due-late' : 'due-soon') : '')(dueOf(st, r)) : '')}
           onMouseDown={e => { if (e.button !== 0 || e.target.closest('.pop, textarea, input, a, button')) return; if (e.shiftKey && act) { e.preventDefault(); if (!anchor) setAnchor(act); setAct({ r: i, c: j }); } else if (!(act && act.r === i && act.c === j)) { setAnchor(null); setAct({ r: i, c: j }); guard.current = i + ':' + j; setTimeout(() => { if (guard.current === i + ':' + j) guard.current = null; }, 400); } if (!e.shiftKey) dragFrom.current = { r: i, c: j }; focusBox(); }}
           onMouseEnter={e => { const d = dragFrom.current; if (!d || !(e.buttons & 1) || (d.r === i && d.c === j && !anchor)) return; guard.current = null; setAnchor(d); setAct({ r: i, c: j }); }}
           onDblClick={e => { if (e.target.closest('.pop, textarea, input')) return; setAct({ r: i, c: j }); setSignal({ n: signal.n + 1, text: null, key: act.r + ':' + act.c }); }}>

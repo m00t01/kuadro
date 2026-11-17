@@ -1,7 +1,7 @@
 // Kanban (propiedades visibles, columnas plegables, carriles), galería y calendario (mes/semana + sin programar).
 import { useState } from 'preact/hooks';
 import { Chip, optionsOf, colorOf, splitMulti } from './ui.jsx';
-import { iso, Avatar } from './shared.jsx';
+import { dueOf, iso, Avatar } from './shared.jsx';
 import { imgSrc, fmtDate, isISO, urls, ytId } from './util.js';
 import { t as tr, LOCALE, LANG } from './i18n.js';
 
@@ -86,7 +86,7 @@ export function GalleryView({ st, rows, open, onMenu, prefs, icons }) {
     let src = s.imageCol && imgSrc(r.v[s.imageCol]), ref = false;
     if (!src) { const y = Object.keys(r.v).filter(c => st.type(c) === 'url').flatMap(c => urls(r.v[c])).map(ytId).find(Boolean); if (y) { src = `https://i.ytimg.com/vi/${y}/mqdefault.jpg`; ref = true; } }
     return <div class="gcard" key={r.id} onContextMenu={e => onMenu(e, { row: r })} draggable={st.can('moveTabs') && !r.tmp} onDragStart={e => startDrag(e, r)} onClick={() => st.can('openPages') && open(r)}><div class="gimg">{src ? <img src={src} loading="lazy" /> : <span>{tr("Sin imagen")}</span>}{ref && <em>{tr("Referencia")}</em>}</div>
-      <div class="card-t">{icons[r.id] && <span class="ticon">{icons[r.id]}</span>}{r.v[s.titleCol] || <span class="ph">{tr("Sin título")}</span>}</div>{(() => { const pg = st.progressOf(r.id); return pg.total ? <span class={'prog sm' + (pg.done === pg.total ? ' full' : '')}><span class="pt"><i style={{ width: Math.round(100 * pg.done / pg.total) + '%' }} /></span><b>{pg.done}/{pg.total}</b></span> : null; })()}<PropLine st={st} r={r} props={props} /></div>;
+      <div class="card-t">{icons[r.id] && <span class="ticon">{icons[r.id]}</span>}{r.v[s.titleCol] || <span class="ph">{tr("Sin título")}</span>}</div>{(() => { const pg = st.progressOf(r.id); return pg.total ? <span class={'prog sm' + (pg.done === pg.total ? ' full' : '')}><span class="pt"><i style={{ width: Math.round(100 * pg.done / pg.total) + '%' }} /></span><b>{pg.done}/{pg.total}</b></span> : null; })()}{(d => d ? <span class={'duebadge ' + (d.late ? 'late' : 'soon')}>{d.late ? tr('Atrasado {n} d', { n: d.n }) : d.n === 0 ? tr('Hoy') : d.n === 1 ? tr('Mañana') : tr('En {n} días', { n: d.n })}</span> : null)(dueOf(st, r))}<PropLine st={st} r={r} props={props} /></div>;
   })}{!rows.length && <div class="empty">{tr("No hay elementos.")}</div>}</div>;
 }
 

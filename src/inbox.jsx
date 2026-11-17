@@ -1,5 +1,5 @@
 // Bandeja de avisos: menciones, respuestas, asignaciones, cambios en tus elementos y avisos de automatizaciones.
-import { Avatar, ago, who } from './shared.jsx';
+import { alertPrefs, dueOf, Avatar, ago, who } from './shared.jsx';
 import { t as tr } from './i18n.js';
 
 export function inboxItems(st) {
@@ -19,7 +19,14 @@ export function inboxItems(st) {
     else if (h.kind === 'edit' && st.type(h.col) === 'person' && h.after === name) out.push({ at: h.at, who: who(st, h.user), text: tr('te asignó como {c}', { c: h.col.toLowerCase() }), detail: h.title, row: r, key: 'h' + h.at + h.rowId + h.col });
     else if (h.kind === 'edit' && isMine(r)) out.push({ at: h.at, who: who(st, h.user), text: tr('cambió {c}: {a} → {b}', { c: h.col, a: h.before || '—', b: h.after || '—' }), detail: h.title, row: r, key: 'h' + h.at + h.rowId + h.col });
   }
-  return out.sort((a, b) => Date.parse(b.at) - Date.parse(a.at)).slice(0, 80);
+  // Fechas: lo atrasado o por vencer (de lo asignado a mí, o de todo si así lo elegí o si no hay columnas de personas).
+  const ap = alertPrefs(), s = S.config.settings, due = [];
+  if (ap.on && s.dateCol) for (const t of S.order) for (const r of S.tabs[t].rows) {
+    if (r.tmp || (ap.scope === 'mine' && peopleCols.length && !isMine(r))) continue; const d = dueOf(st, r, ap.days); if (!d) continue;
+    due.push({ at: (() => { const x = new Date(); x.setHours(0, 0, 0, 1); return x.toISOString(); })(), due: d, who: d.late ? '⏰ ' + tr('Atrasado') : '📅 ' + tr('Por vencer'), text: d.late ? tr('hace {n} días', { n: d.n }) : d.n === 0 ? tr('vence hoy') : d.n === 1 ? tr('vence mañana') : tr('vence en {n} días', { n: d.n }), detail: r.v[tc] || tr('Sin título'), row: r, key: 'due' + r.id + r.v[s.dateCol] });
+  }
+  due.sort((a, b) => (a.due.late ? -a.due.n : a.due.n) - (b.due.late ? -b.due.n : b.due.n));
+  return [...due, ...out.sort((a, b) => Date.parse(b.at) - Date.parse(a.at))].slice(0, 100);
 }
 export function Inbox({ st, items, seen, open, onClose, onSeen }) {
   return <div class="inbox"><div class="ib-h"><b>{tr("Bandeja")}</b><span class="sp" /><button class="mini" onClick={onSeen}>{tr("Marcar todo como leído")}</button><button class="icon" onClick={onClose}>✕</button></div>

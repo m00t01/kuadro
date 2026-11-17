@@ -5,7 +5,7 @@ import { MockSheets } from './mock.js';
 import { GoogleSheets } from './gapi.js';
 import { af, useStore, Chip, Pop, Modal, Field, ColumnEditor, RichEditor, splitMulti, optionsOf, colorOf } from './ui.jsx';
 import { urls, ytId, imgSrc, fmtDate, norm, newId, isISO } from './util.js';
-import { native, LS, ICON, DONE, iso, Avatar, copyText } from './shared.jsx';
+import { alertPrefs, setAlertPrefs, native, LS, ICON, DONE, iso, Avatar, copyText } from './shared.jsx';
 import { TableView, BulkBar } from './table.jsx';
 import { KanbanView, GalleryView, CalendarView, defaultCardProps } from './views.jsx';
 import { RowPage, HistList } from './page.jsx';
@@ -44,6 +44,7 @@ function Appearance({ value, onChange }) {
     <button class="btn" onClick={() => onChange({ ...APPEAR0 })}>{tr("Restablecer")}</button>
     <p class="hint">{tr("La apariencia es personal: solo cambia en esta computadora, no para tu equipo.")}</p>
     {native && native.prefs && <Shortcuts />}
+    <DateAlerts />
     {native && native.updateState && <Updates />}
   </div>;
 }
@@ -198,6 +199,15 @@ function ChecklistSettings({ st }) {
       <button class="btn" onClick={() => confirm(tr('¿Volver a las checklists de ejemplo?')) && save(st.defaultChecklists())}>{tr("Restablecer ejemplos")}</button></div>
     <p class="hint">{tr("Una tarea por línea.")}</p></div>;
 }
+// Avisos de fechas: preferencia personal.
+function DateAlerts() {
+  const [p, setP] = useState(alertPrefs()), up = x => { setAlertPrefs(x); setP(alertPrefs()); };
+  return <div class="f" style={{ marginTop: '18px' }}><b class="tx">{tr("Avisos de fechas")}</b>
+    <label class="chkrow"><input type="checkbox" checked={p.on} onChange={e => up({ on: e.target.checked })} />{tr("Avisarme de videos atrasados o por vencer (bandeja 🔔 y una notificación al día)")}</label>
+    {p.on && <div class="lrow0"><span>{tr("Avisar desde")}</span><input type="number" min="0" max="30" style={{ width: '64px' }} value={p.days} onInput={e => up({ days: Math.max(0, Math.min(30, +e.target.value || 0)) })} /><span>{tr("días antes")}</span>
+      <select value={p.scope} onChange={e => up({ scope: e.target.value })}><option value="mine">{tr("de lo que tengo asignado")}</option><option value="all">{tr("de todo el proyecto")}</option></select></div>}
+    <p class="hint">{tr("Usa la columna de fecha del calendario. Lo atrasado se ve en rojo y lo que vence pronto en naranja. Lo publicado o descartado no cuenta.")}</p></div>;
+}
 // Color de fondo de una columna del kanban.
 const COLBG = ['', 'gray', 'brown', 'orange', 'yellow', 'green', 'blue', 'purple', 'pink', 'red'];
 const COLBG_NAME = { '': tr('Sin color'), gray: tr('Gris'), brown: tr('Café'), orange: tr('Naranja'), yellow: tr('Amarillo'), green: tr('Verde'), blue: tr('Azul'), purple: tr('Morado'), pink: tr('Rosa'), red: tr('Rojo') };
@@ -229,6 +239,23 @@ function Bars({ title, data, color }) {
   const max = Math.max(1, ...data.map(d => d[1]));
   return <div class="panel"><h4>{title}</h4>{data.map(([l, n, c]) => <div class="bar"><span class="bar-l" title={l}>{l}</span><span class="bar-t"><i class={'c-' + (c || color || 'blue')} style={{ width: (100 * n / max) + '%' }} /></span><b>{n}</b></div>)}{!data.length && <p class="muted">{tr("Sin datos.")}</p>}</div>;
 }
+// Meta semanal: cuántos videos se publicaron esta semana (lunes a domingo) contra la meta, y las últimas 8 semanas.
+function WeeklyGoal({ st, rows }) {
+  const S = st.S, s = S.config.settings, goal = +(s.weeklyGoal || 0), [ed, setEd] = useState(false), [v, setV] = useState(goal || 3);
+  if (!s.dateCol) return null;
+  const monday = d => { const x = new Date(d); x.setHours(12, 0, 0, 0); x.setDate(x.getDate() - ((x.getDay() + 6) % 7)); return x; }, iso = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  const done = r => s.groupCol ? DONE.test(String(r.v[s.groupCol] || '')) && !/descart|discard|cancel/i.test(String(r.v[s.groupCol] || '')) : String(r.v[s.dateCol] || '').slice(0, 10) <= iso(new Date());
+  const weeks = [...Array(8)].map((_, i) => { const a = monday(new Date()); a.setDate(a.getDate() - 7 * (7 - i)); const b = new Date(a); b.setDate(b.getDate() + 6); return { a: iso(a), b: iso(b), n: rows.filter(r => { const d = String(r.v[s.dateCol] || '').slice(0, 10); return d >= iso(a) && d <= iso(b) && done(r); }).length }; });
+  const cur = weeks[7], planned = rows.filter(r => { const d = String(r.v[s.dateCol] || '').slice(0, 10); return d >= cur.a && d <= cur.b && !done(r); }).length, max = Math.max(goal, ...weeks.map(w => w.n), 1);
+  const save = () => { s.weeklyGoal = Math.max(0, +v || 0); st.saveConfig(); setEd(false); };
+  return <div class="panel goal"><div class="goal-h"><h4>{tr("Meta semanal")}</h4>{st.can('admin') && !ed && <button class="mini" onClick={() => { setV(goal || 3); setEd(true); }}>{goal ? tr('Cambiar meta') : tr('Poner una meta')}</button>}
+      {ed && <span class="lrow0"><input type="number" min="0" style={{ width: '64px' }} value={v} onInput={e => setV(e.target.value)} onKeyDown={e => e.key === 'Enter' && save()} /><span>{tr("videos por semana")}</span><button class="mini primary" onClick={save}>{tr("Guardar")}</button></span>}</div>
+    {goal ? <><div class="goal-big"><b>{cur.n}</b> / {goal} <span class="muted">{tr("publicados esta semana")}</span>{cur.n >= goal && <span class="goal-ok">🎉 {tr("¡Meta cumplida!")}</span>}</div>
+      <div class="goal-bar"><i style={{ width: Math.min(100, 100 * cur.n / goal) + '%' }} class={cur.n >= goal ? 'ok' : ''} /></div>
+      <p class="muted sm">{planned ? tr('{n} más programados para esta semana.', { n: planned }) : cur.n < goal ? tr('No hay más videos programados esta semana.') : ''}</p></>
+      : <p class="muted">{tr("Ponte una meta de videos por semana y aquí verás tu avance.")}</p>}
+    <div class="goal-weeks">{weeks.map((w, i) => <div class="gw" title={tr('Semana del {d}: {n}', { d: fmtDate(w.a), n: w.n })}><span class="gw-b"><i style={{ height: (100 * w.n / max) + '%' }} class={goal && w.n >= goal ? 'ok' : ''} />{goal > 0 && <em style={{ bottom: (100 * goal / max) + '%' }} />}</span><small>{i === 7 ? tr('Esta') : fmtDate(w.a).replace(/,? \d{4}$/, '')}</small></div>)}</div></div>;
+}
 function DashView({ st, rows, dups, open }) {
   const S = st.S, s = S.config.settings, name = st.myName(); const count = f => { const m = new Map(); rows.forEach(r => f(r).forEach(k => m.set(k, (m.get(k) || 0) + 1))); return [...m]; };
   const people = [...new Set(S.order.flatMap(t => S.tabs[t].header.filter(h => st.type(h) === 'person')))];
@@ -236,7 +263,7 @@ function DashView({ st, rows, dups, open }) {
   const g = s.groupCol ? [...optionsOf(st, s.groupCol).map(o => [o.v, rows.filter(r => r.v[s.groupCol] === o.v).length, o.color]), [tr('Sin {x}', { x: s.groupCol.toLowerCase() }), rows.filter(r => !r.v[s.groupCol]).length, 'gray']] : [];
   const months = s.dateCol ? count(r => isISO(r.v[s.dateCol]) ? [r.v[s.dateCol].slice(0, 7)] : []).sort() : [];
   const dupRows = rows.filter(r => dups.has(r.id));
-  return <div class="dash"><div class="tiles"><div class="tile"><b>{rows.length}</b><span>{tr("Elementos")}</span></div>
+  return <div class="dash"><WeeklyGoal st={st} rows={rows} /><div class="tiles"><div class="tile"><b>{rows.length}</b><span>{tr("Elementos")}</span></div>
     {s.imageCol && <div class="tile"><b>{rows.filter(r => !r.v[s.imageCol]).length}</b><span>{tr("Sin imagen")}</span></div>}
     <div class="tile"><b>{mine.length}</b><span>{tr("Mis pendientes")}</span></div><div class="tile"><b>{dupRows.length}</b><span>{tr("Títulos duplicados")}</span></div></div>
     <div class="panels">{s.groupCol && <Bars title={tr('Por ') + s.groupCol.toLowerCase()} data={g} />}
@@ -297,6 +324,9 @@ function Workspace({ st, name, onHome }) {
   const [menu, setMenu] = useState(null), [dropTab, setDropTab] = useState(null), [openId, setOpenId] = useState(null), [settings, setSettings] = useState(null), [colEdit, setColEdit] = useState(null), [addCol, setAddCol] = useState(null), [pal, setPal] = useState(false), [pq, setPq] = useState(''), [phi, setPhi] = useState(0), [fpop, setFpop] = useState(false), [tplAsk, setTplAsk] = useState(null), [views, setViews] = useState(saved0.views || []), [vname, setVname] = useState(null), [newTab, setNewTab] = useState(null), [renTab, setRenTab] = useState(null), [folderAsk, setFolderAsk] = useState(null);
   const [sel, setSel] = useState(new Set()), [colsPop, setColsPop] = useState(false), [inbox, setInbox] = useState(false), [seen, setSeen] = useState(LS.get('seen:' + pk, Date.now() - 864e5 * 3));
   const fref = useRef(), cref = useRef();
+  useEffect(() => { const t = setTimeout(() => { const ap = alertPrefs(); if (!ap.on || !native || !native.notify) return; const today = new Date().toDateString(); try { if (localStorage.getItem('kuadro-due-day:' + name) === today) return; } catch { }
+    const due = inboxItems(st).filter(x => x.due); if (!due.length) return; const late = due.filter(x => x.due.late).length, soon = due.length - late;
+    native.notify(tr('Fechas en {p}', { p: name }), [late && tr(late === 1 ? '1 video atrasado' : '{n} videos atrasados', { n: late }), soon && tr(soon === 1 ? '1 por vencer' : '{n} por vencer', { n: soon })].filter(Boolean).join(' · ')); try { localStorage.setItem('kuadro-due-day:' + name, today); } catch { } }, 6000); return () => clearTimeout(t); }, []);
   useEffect(() => { const t0 = setTimeout(() => st.runDateAutomations(), 4000), iv = setInterval(() => st.runDateAutomations(), 30 * 60 * 1000); return () => { clearTimeout(t0); clearInterval(iv); }; }, []);
   useEffect(() => { LS.set(pk, { view, tab, views, prefs }); }, [view, tab, views, prefs]);
   useEffect(() => { setSel(new Set()); }, [tab, view]);

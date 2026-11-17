@@ -314,3 +314,10 @@ body.light .prog .pt{background:rgba(0,0,0,.1)}
 .sec-row{display:flex;align-items:center;gap:10px}.sec-row .sec{margin-right:auto}.chkbar{display:flex;align-items:center;gap:8px}
 .chk-ed{display:grid;grid-template-columns:1fr auto;gap:6px;margin-bottom:12px}.chk-ed textarea{grid-column:1;font:inherit;padding:6px 8px;background:var(--bg2,#1d1d1d);color:inherit;border:1px solid var(--line);border-radius:6px}.chk-ed .icon{grid-row:1}
 .tpl-gal .ctx-t{margin-top:14px}.tpl-i{display:flex;align-items:center;gap:14px;padding:9px 4px;border-bottom:1px solid var(--line)}.tpl-i:last-child{border-bottom:0}.tpl-i .grow{min-width:0}.tpl-i .mini.primary{background:var(--acc);border-color:var(--acc);color:#fff}
+.grid td.due-late .cellbtn{color:#ff8f87;font-weight:600}.grid td.due-soon .cellbtn{color:#f5b45f}
+.duebadge{display:inline-block;font-size:11px;border-radius:4px;padding:1px 6px;margin:4px 0 0}.duebadge.late{background:#5c1f1c;color:#ffb4ad}.duebadge.soon{background:#5a3d12;color:#ffd38f}
+.goal{margin:16px 16px 0}.goal-h{display:flex;align-items:center;gap:10px}.goal-h h4{margin-right:auto}.goal-big{font-size:15px;margin:6px 0}.goal-big b{font-size:28px}.goal-ok{margin-left:10px;color:#7fd1a5}
+.goal-bar{height:8px;border-radius:4px;background:rgba(255,255,255,.08);overflow:hidden}.goal-bar i{display:block;height:100%;background:var(--acc)}.goal-bar i.ok{background:#30a46c}
+.goal-weeks{display:flex;gap:10px;margin-top:14px;align-items:flex-end}.gw{display:flex;flex-direction:column;align-items:center;gap:4px;flex:1}.gw-b{position:relative;height:60px;width:100%;max-width:34px;background:rgba(255,255,255,.04);border-radius:4px;display:flex;align-items:flex-end}
+.gw-b i{display:block;width:100%;background:var(--acc);border-radius:4px;opacity:.75}.gw-b i.ok{background:#30a46c}.gw-b em{position:absolute;left:-3px;right:-3px;border-top:1px dashed #f5b45f}.gw small{font-size:10px;color:var(--mut);white-space:nowrap}
+body.light .duebadge.late{background:#fde2e0;color:#8f1d16}body.light .duebadge.soon{background:#fdebd0;color:#7a4a05}body.light .goal-bar,body.light .gw-b{background:rgba(0,0,0,.06)}
