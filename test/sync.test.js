@@ -294,3 +294,31 @@ test('carpetas: crear, meter filas lejanas al final, agrupar en Sheets, sacar, r
   // Persistencia: otra persona ve las mismas carpetas.
   const { st: st2 } = await boot(ME, api.d); assert.deepEqual(st2.foldersOf(tab).map(f => f.name), ['Vacía']);
 });
+
+test('automatizaciones nuevas: carpeta, color, checklist, completar checklist, copia, comentario y por fecha', async () => {
+  const { api, st, S } = await ready(); const tab = 'ROBLOX', g = S.config.settings.groupCol, opts = S.config.schema[g].options.map(o => o.v);
+  const pub = opts.find(v => /publicad/i.test(v)), other = opts.find(v => v !== pub), shorts = S.order.find(t => t !== tab);
+  S.config.automations = [
+    { id: 'a1', name: 'pub', enabled: true, when: { type: 'change', col: g, to: pub }, conds: [], actions: [{ type: 'folder', folder: 'Publicados' }, { type: 'color', color: 'green' }, { type: 'dup', tab: shorts, suffix: '(Short)' }, { type: 'comment', msg: 'Publicado: {titulo}' }] },
+    { id: 'a2', name: 'chk', enabled: true, when: { type: 'change', col: g, to: other }, conds: [], actions: [{ type: 'checklist', list: 'rec' }] },
+    { id: 'a3', name: 'done', enabled: true, when: { type: 'checklist' }, conds: [{ op: 'chk', col: '', val: 'done' }], actions: [{ type: 'color', color: 'blue' }] },
+  ];
+  await st.saveConfig();
+  const r = S.tabs[tab].rows.find(x => x.v[g] !== pub && x.v[S.config.settings.titleCol]), title = r.v[S.config.settings.titleCol], n0 = S.tabs[shorts].rows.length;
+  st.setCell(tab, r.id, g, pub); await new Promise(res => setTimeout(res, 50)); await st.idle(); await new Promise(res => setTimeout(res, 50)); await st.idle();
+  const fc = st.folderCol(), cc = st.colorCol();
+  assert.equal(cell(api, tab, r.id, fc), 'Publicados'); assert.equal(cell(api, tab, r.id, cc), 'green');
+  assert.equal(S.tabs[shorts].rows.length, n0 + 1); assert.ok(S.tabs[shorts].rows.some(x => x.v[S.config.settings.titleCol] === title + ' (Short)'));
+  assert.ok(S.comments.some(c => c.rowId === r.id && c.text === 'Publicado: ' + title));
+  // Checklist agregada al cambiar de estado; al completarla se dispara la otra automatización.
+  const r2 = S.tabs[tab].rows.find(x => x.v[g] !== other && x.id !== r.id); st.setCell(tab, r2.id, g, other); await new Promise(res => setTimeout(res, 50)); await st.idle();
+  const p = st.progressOf(r2.id); assert.ok(p.total >= 5 && p.done === 0);
+  await st.checkAll(r2.id, true); await st.idle(); await new Promise(res => setTimeout(res, 50)); await st.idle();
+  assert.equal(st.progressOf(r2.id).done, p.total); assert.equal(cell(api, tab, r2.id, cc), 'blue');
+  // Por fecha: un día antes; corre una sola vez.
+  const dc = Object.keys(S.config.schema).find(k => S.config.schema[k].type === 'date' && S.tabs[tab].header.includes(k));
+  const r3 = S.tabs[tab].rows[9]; st.setCell(tab, r3.id, dc, st.addDays(st.todayISO(), 1)); await st.idle();
+  S.config.automations = [{ id: 'd1', name: 'pre', enabled: true, when: { type: 'date', col: dc, dir: 'before', n: 1 }, conds: [], actions: [{ type: 'color', color: 'orange' }] }];
+  const ran = st.runDateAutomations(); await st.idle(); await new Promise(res => setTimeout(res, 50)); await st.idle();
+  assert.ok(ran >= 1); assert.equal(cell(api, tab, r3.id, cc), 'orange'); assert.equal(st.runDateAutomations(), 0);
+});

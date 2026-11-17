@@ -186,6 +186,18 @@ const ROWC = {
   red: { hex: '#e5484d', label: () => tr('Rojo') }, orange: { hex: '#f08c2e', label: () => tr('Naranja') }, yellow: { hex: '#e8c419', label: () => tr('Amarillo') }, green: { hex: '#30a46c', label: () => tr('Verde') },
   blue: { hex: '#3e8ef7', label: () => tr('Azul') }, purple: { hex: '#8e4ec6', label: () => tr('Morado') }, pink: { hex: '#e93d82', label: () => tr('Rosa') }, gray: { hex: '#8b8d98', label: () => tr('Gris') },
 };
+// Checklists predefinidas que se agregan a las páginas (y que usan las automatizaciones).
+function ChecklistSettings({ st }) {
+  const c = st.S.config, [list, setList] = useState(() => JSON.parse(JSON.stringify(st.checklists())));
+  const save = l => { setList(l); c.checklists = l; st.saveConfig(); };
+  return <div><p class="hint">{tr("Listas de tareas que puedes agregar a la página de cada video con «＋ Checklist» o con clic derecho. El progreso (por ejemplo 3/6) se ve en la tabla y en las tarjetas, y las automatizaciones pueden agregarlas o reaccionar cuando se completan.")}</p>
+    {list.map((k, i) => <div class="chk-ed"><input class="grow" value={k.name} onBlur={e => save(list.map((x, j) => j === i ? { ...x, name: e.target.value.trim() || x.name } : x))} />
+      <textarea rows={Math.max(3, k.items.length)} value={k.items.join('\n')} onBlur={e => save(list.map((x, j) => j === i ? { ...x, items: e.target.value.split('\n').map(t => t.trim()).filter(Boolean) } : x))} />
+      <button class="icon" title={tr("Eliminar")} onClick={() => confirm(tr('¿Eliminar la checklist «{n}»?', { n: k.name })) && save(list.filter((_, j) => j !== i))}>✕</button></div>)}
+    <div class="lrow0"><button class="btn" onClick={() => save([...list, { id: newId(), name: tr('Nueva checklist'), items: [tr('Primera tarea')] }])}>{tr("＋ Nueva checklist")}</button>
+      <button class="btn" onClick={() => confirm(tr('¿Volver a las checklists de ejemplo?')) && save(st.defaultChecklists())}>{tr("Restablecer ejemplos")}</button></div>
+    <p class="hint">{tr("Una tarea por línea.")}</p></div>;
+}
 // Color de fondo de una columna del kanban.
 const COLBG = ['', 'gray', 'brown', 'orange', 'yellow', 'green', 'blue', 'purple', 'pink', 'red'];
 const COLBG_NAME = { '': tr('Sin color'), gray: tr('Gris'), brown: tr('Café'), orange: tr('Naranja'), yellow: tr('Amarillo'), green: tr('Verde'), blue: tr('Azul'), purple: tr('Morado'), pink: tr('Rosa'), red: tr('Rojo') };
@@ -242,7 +254,7 @@ function ColList({ label, all, value, onChange, hint }) {
 function Settings({ st, onClose, onCol, onAddCol, start }) {
   const S = st.S, c = S.config, [sec, setSec] = useState(start || 'general'), [rid, setRid] = useState(c.roles[0]?.id), [uopen, setUopen] = useState(null), [nu, setNu] = useState({ email: '', name: '' }), [tid, setTid] = useState(0);
   const admin = st.can('admin'), save = () => st.saveConfig(); const names = [...new Set(S.order.flatMap(t => S.tabs[t].header))].filter(h => h && h !== 'ID');
-  const secs = [['general', tr('General'), admin], ['cols', tr('Columnas'), true], ['roles', tr('Roles'), admin], ['users', tr('Usuarios'), admin], ['tpl', tr('Plantillas'), admin], ['auto', tr('Automatizaciones'), admin], ['yt', 'YouTube', admin], ['look', tr('Apariencia y atajos'), true], ['hist', tr('Historial'), st.can('viewHistory')]].filter(x => x[2]);
+  const secs = [['general', tr('General'), admin], ['cols', tr('Columnas'), true], ['roles', tr('Roles'), admin], ['users', tr('Usuarios'), admin], ['tpl', tr('Plantillas'), admin], ['auto', tr('Automatizaciones'), admin], ['chk', tr('Checklists'), admin], ['yt', 'YouTube', admin], ['look', tr('Apariencia y atajos'), true], ['hist', tr('Historial'), st.can('viewHistory')]].filter(x => x[2]);
   const role = c.roles.find(r => r.id === rid), sel = (k, label, types) => <label class="f">{label}<select value={c.settings[k]} onChange={e => { c.settings[k] = e.target.value; save(); }}><option value="">{tr("(ninguna)")}</option>{names.filter(n => !types || types.includes(st.type(n))).map(n => <option>{n}</option>)}</select></label>;
   const tpl = c.templates[tid];
   return <Modal title={tr("Ajustes del proyecto")} onClose={onClose} wide><div class="set"><nav>{secs.map(([k, l]) => <button class={sec === k ? 'on' : ''} onClick={() => setSec(k)}>{l}</button>)}</nav><div class="set-b">
@@ -250,6 +262,7 @@ function Settings({ st, onClose, onCol, onAddCol, start }) {
       <label class="f">{tr("Rol para quien no está en la lista de usuarios")}<select value={c.defaultRoleId} onChange={e => { c.defaultRoleId = e.target.value; save(); }}>{c.roles.map(r => <option value={r.id}>{r.name}</option>)}</select></label>
       <p class="hint">{tr('Dueño del proyecto:')} {c.owner}. {tr('El dueño siempre tiene todos los permisos.')}</p></div>}
     {sec === 'yt' && <YTSettings st={st} />}
+    {sec === 'chk' && <ChecklistSettings st={st} />}
     {sec === 'cols' && <div>{names.map(n => <div class="lrow click" onClick={() => onCol(n)}><span class="tyi">{ICON[st.type(n)]}</span><b>{n}</b><span class="muted">{TYPES[st.type(n)]}{(c.schema[n]?.options || []).length ? ` · ${c.schema[n].options.length} opciones` : ''}</span></div>)}
       {st.can('manageColumns') && <button class="btn" onClick={onAddCol}>{tr("+ Agregar columna")}</button>}</div>}
     {sec === 'roles' && <div class="two"><div class="side">{c.roles.map(r => <button class={r.id === rid ? 'on' : ''} onClick={() => setRid(r.id)}>{r.name}</button>)}
@@ -284,6 +297,7 @@ function Workspace({ st, name, onHome }) {
   const [menu, setMenu] = useState(null), [dropTab, setDropTab] = useState(null), [openId, setOpenId] = useState(null), [settings, setSettings] = useState(null), [colEdit, setColEdit] = useState(null), [addCol, setAddCol] = useState(null), [pal, setPal] = useState(false), [pq, setPq] = useState(''), [phi, setPhi] = useState(0), [fpop, setFpop] = useState(false), [tplAsk, setTplAsk] = useState(null), [views, setViews] = useState(saved0.views || []), [vname, setVname] = useState(null), [newTab, setNewTab] = useState(null), [renTab, setRenTab] = useState(null), [folderAsk, setFolderAsk] = useState(null);
   const [sel, setSel] = useState(new Set()), [colsPop, setColsPop] = useState(false), [inbox, setInbox] = useState(false), [seen, setSeen] = useState(LS.get('seen:' + pk, Date.now() - 864e5 * 3));
   const fref = useRef(), cref = useRef();
+  useEffect(() => { const t0 = setTimeout(() => st.runDateAutomations(), 4000), iv = setInterval(() => st.runDateAutomations(), 30 * 60 * 1000); return () => { clearTimeout(t0); clearInterval(iv); }; }, []);
   useEffect(() => { LS.set(pk, { view, tab, views, prefs }); }, [view, tab, views, prefs]);
   useEffect(() => { setSel(new Set()); }, [tab, view]);
   // Atajos globales: Ctrl+K buscar, Ctrl+Z / Ctrl+Y deshacer y rehacer, Esc cerrar página.
@@ -366,6 +380,7 @@ function Workspace({ st, name, onHome }) {
       ...pcols.filter(c => ok && st.canEditCol(c)).map(c => ({ label: tr('Asignar ') + c.toLowerCase(), sub: [...optionsOf(st, c).map(o => ({ label: o.v, check: r.v[c] === o.v, onClick: () => st.setCell(r.tab, r.id, c, o.v) })), ...(r.v[c] ? [{ label: tr('Quitar asignación'), onClick: () => st.setCell(r.tab, r.id, c, '') }] : [])] })),
       ok && st.can('moveTabs') && others.length && { label: tr('Mover a pestaña'), sub: others.map(t => ({ label: t, onClick: () => st.moveRow(r.tab, r.id, t) })) },
       ok && st.can('editCells') && { label: tr('Color de fila'), sub: colorItems([{ tab: r.tab, id: r.id }], cc ? r.v[cc] : '') },
+      ok && st.can('editPages') && { label: tr('Agregar checklist'), sub: st.checklists().map(c => ({ label: c.name, onClick: () => st.addChecklist(r.id, c.name, c.items) })) },
       ok && st.can('moveCards') && view === 'table' && { label: tr('Mover a carpeta'), sub: folderItems(r.tab, [r.id], st.folderCol() ? String(r.v[st.folderCol()] || '') : '') },
       ok && st.can('moveCards') && !sort.col && sameTab.length && { label: list && !ctxTable ? tr('Subir al inicio de la columna') : tr('Subir al inicio'), onClick: () => st.reorder(r.tab, r.id, sameTab[0].id, false) },
       ok && st.can('moveCards') && !sort.col && sameTab.length && { label: list && !ctxTable ? tr('Bajar al final de la columna') : tr('Bajar al final'), onClick: () => st.reorder(r.tab, r.id, sameTab[sameTab.length - 1].id, true) },
@@ -458,6 +473,7 @@ function Workspace({ st, name, onHome }) {
       'sep',
       ...optCols.map(c => ({ label: tr('Cambiar «{c}» en todas', { c }), sub: valuesOf(c, setAll) })),
       st.can('editCells') && n > 0 && { label: tr('Color de fila'), sub: colorItems(list.map(r => ({ tab: r.tab, id: r.id })), null) },
+      st.can('editPages') && n > 0 && { label: tr('Agregar checklist'), sub: st.checklists().map(c => ({ label: c.name, onClick: () => list.forEach(r => st.addChecklist(r.id, c.name, c.items)) })) },
       st.can('moveCards') && view === 'table' && new Set(list.map(r => r.tab)).size === 1 && n > 0 && { label: tr('Mover a carpeta'), sub: folderItems(list[0].tab, ids, (() => { const f = st.folderCol(); const v = new Set(list.map(r => f ? String(r.v[f] || '') : '')); return v.size === 1 ? [...v][0] : null; })()) },
       st.can('moveTabs') && { label: tr('Mover a pestaña'), sub: tabs.filter(t => S.tabs[t].idCol >= 0).map(t => ({ label: t, onClick: () => { list.forEach(r => r.tab !== t && st.moveRow(r.tab, r.id, t)); setSel(new Set()); } })) },
       'sep',

@@ -481,8 +481,8 @@ export function createStore(api, me, opts = {}) {
   }
   // Color de fila: se guarda en la columna «Color» del Sheet (red, orange, yellow, green, blue, purple, pink, gray).
   const colorCol = () => S.config.settings.colorCol || '';
-  async function setRowColor(items, color) {
-    if (!can('editCells')) { toast(tr('No tienes permiso para editar.'), 'error'); return; }
+  async function setRowColor(items, color, o = {}) {
+    if (!o.system && !can('editCells')) { toast(tr('No tienes permiso para editar.'), 'error'); return; }
     const tabs = [...new Set(items.map(x => x.tab))];
     for (const t of tabs) if (!colorCol() || !S.tabs[t].header.includes(colorCol())) await enqueue(async () => { await flushFirst(); await ensureSysCol(t, 'colorCol', tr('Color')); });
     const cc = colorCol(); await setMany(items.filter(x => S.tabs[x.tab] && S.tabs[x.tab].rows.some(r => r.id === x.id)).map(x => ({ tab: x.tab, id: x.id, col: cc, val: color || '' })), { system: true });
@@ -509,8 +509,8 @@ export function createStore(api, me, opts = {}) {
     return p.then(async () => { if (ids.length) await moveToFolder(tab, ids, name); else await syncGroups(tab); toast(tr('Carpeta «{n}» creada', { n: name })); return name; });
   }
   // Mete (o saca, con name = '') filas en una carpeta: se escriben las celdas y las filas se mueven al final de la carpeta.
-  async function moveToFolder(tab, ids, name) {
-    if (!can('moveCards')) { toast(tr('No tienes permiso para mover tarjetas.'), 'error'); return; }
+  async function moveToFolder(tab, ids, name, o = {}) {
+    if (!o.system && !can('moveCards')) { toast(tr('No tienes permiso para mover tarjetas.'), 'error'); return; }
     const T = S.tabs[tab]; if (!T) return;
     let fc = folderCol(); if (!fc || !T.header.includes(fc)) { await enqueue(async () => { await flushFirst(); fc = await ensureFolderCol(tab); }); }
     const moving = new Set(ids), list = S.tabs[tab].rows.filter(r => moving.has(r.id) && !r.tmp); if (!list.length) return;
@@ -526,7 +526,9 @@ export function createStore(api, me, opts = {}) {
       for (const old of olds) { const rest = rows().filter(r => !moving.has(r.id) && String(r.v[fc] || '') === old); if (!rest.length) continue; let target = rest[rest.length - 1].id; for (const r of list.filter(x => String(x.v[fc] || '') === '' )) { await reorder(tab, r.id, target, true); target = r.id; } }
     }
     await syncGroups(tab);
+    if (o.system) return;
     toast(name ? tr(list.length === 1 ? 'Movido a «{n}»' : '{c} filas movidas a «{n}»', { n: name, c: list.length }) : tr('Fuera de la carpeta'));
+    if (name) list.forEach(r => runAutomations('folder', tab, r.id, { to: name }));
   }
   async function renameFolder(tab, old, neu) {
     neu = String(neu || '').trim(); if (!can('moveCards') || neu === old) return old;
@@ -611,7 +613,11 @@ export function createStore(api, me, opts = {}) {
     return { at: row[1] || '', by: row[2] || '', text: row.slice(3).map(x => String(x ?? '')).join('') };
   }
   // Guarda una página. Si alguien más la cambió desde que la abriste, combina ambos cambios en lugar de pisarlos.
+  // Checklist de la página: cuenta los «- [ ]» y «- [x]» del markdown.
+  const progressOf = id => { const md = (S.pages[id] || {}).md || ''; const all = md.match(/^\s*[-*+] \[[ xX]\] /gm) || [], done = md.match(/^\s*[-*+] \[[xX]\] /gm) || []; return { done: done.length, total: all.length }; };
+  const findRow = id => S.order.map(t => S.tabs[t].rows.find(r => r.id === id)).find(Boolean);
   function savePage(id, md) {
+    const before = progressOf(id);
     S.pages = { ...S.pages, [id]: { ...(S.pages[id] || {}), md, at: now(), by: me.email } }; dirty.add(id); emit();
     return enqueue(async () => {
       try {
@@ -625,8 +631,24 @@ export function createStore(api, me, opts = {}) {
         if (out !== theirs) await upsert(APP.pages, id, [now(), me.email, ...chunk(out, CHUNK)]);
         pageBase[id] = out; if (S.pages[id].md === cur) S.pages = { ...S.pages, [id]: { md: out, at: now(), by: me.email } };
       } finally { if (S.pages[id] && S.pages[id].md === pageBase[id]) dirty.delete(id); }
-    });
+    }).then(() => { const after = progressOf(id), r = findRow(id); if (r && after.total && after.done === after.total && before.done < before.total) runAutomations('checklist', r.tab, id, {}); });
   }
+  // Agrega una checklist (nombre + tareas) al final de la página.
+  function addChecklist(id, name, items) {
+    items = (items || []).map(x => String(x).trim()).filter(Boolean); if (!items.length) return;
+    const md = (S.pages[id] || {}).md || '', block = (name ? `## ✅ ${name}\n\n` : '') + items.map(x => `- [ ] ${x}`).join('\n');
+    S.pageRev = { ...(S.pageRev || {}), [id]: Date.now() }; return savePage(id, md.trim() ? md.replace(/\s+$/, '') + '\n\n' + block + '\n' : block + '\n');
+  }
+  // Marca (o desmarca) todas las tareas de la página.
+  function checkAll(id, on = true) { const md = (S.pages[id] || {}).md || ''; const out = md.replace(/^(\s*[-*+] )\[[ xX]\] /gm, `$1[${on ? 'x' : ' '}] `); if (out !== md) { S.pageRev = { ...(S.pageRev || {}), [id]: Date.now() }; return savePage(id, out); } }
+  // Checklists predefinidas (se pueden editar en Ajustes → Checklists).
+  const defaultChecklists = () => [
+    { id: 'rec', name: tr('Grabación'), items: [tr('Guion listo'), tr('Probar audio y cámara'), tr('Grabar intro'), tr('Grabar el contenido principal'), tr('Grabar el cierre'), tr('Respaldar los archivos')] },
+    { id: 'edit', name: tr('Edición'), items: [tr('Cortes y ritmo'), tr('Música y efectos'), tr('Textos y subtítulos'), tr('Revisión final'), tr('Exportar')] },
+    { id: 'pub', name: tr('Publicación'), items: [tr('Título final'), tr('Miniatura'), tr('Descripción y enlaces'), tr('Etiquetas'), tr('Pantalla final y tarjetas'), tr('Programar o publicar')] },
+    { id: 'short', name: tr('Short'), items: [tr('Gancho en los primeros 2 segundos'), tr('Formato vertical 9:16'), tr('Subtítulos'), tr('Título corto'), tr('Publicar')] },
+  ];
+  const checklists = () => (S.config.checklists && S.config.checklists.length ? S.config.checklists : defaultChecklists());
   function setPageMeta(id, patch) {
     const m = { ...(S.pageMeta[id] || {}), ...patch }; S.pageMeta = { ...S.pageMeta, [id]: m }; emit();
     return enqueue(() => upsert(APP.pages, 'meta:' + id, [now(), me.email, JSON.stringify(m)]));
@@ -645,6 +667,7 @@ export function createStore(api, me, opts = {}) {
   function addComment(rowId, text, parent = '') {
     text = text.trim(); if (!text || !can('comment')) return;
     const c = { id: newId(), rowId, author: me.email, name: myName(), at: now(), text, parent, edited: '', deleted: false }; S.comments = [...S.comments, c]; emit();
+    { const r = findRow(rowId); if (r) setTimeout(() => runAutomations('comment', r.tab, rowId, { text }), 0); }
     return enqueue(() => api.append(`${q(APP.comments)}!A1`, [[c.id, c.rowId, c.author, c.name, c.at, c.text, parent, '', '']], 'RAW'));
   }
   const canTouchComment = c => c.author.toLowerCase() === (me.email || '').toLowerCase() || can('admin');
@@ -742,23 +765,34 @@ export function createStore(api, me, opts = {}) {
   const refresh = () => enqueue(async () => apply(await fetchAll(), false)).then(() => autoFill());
   const allRows = tab => (tab && S.tabs[tab] ? S.tabs[tab].rows : S.order.filter(t => !hiddenTabs().includes(t)).flatMap(t => S.tabs[t].rows));
   const duplicates = () => { const m = new Map(), tc = S.config.settings.titleCol, d = new Set(); if (!tc) return d; allRows().forEach(r => { const k = norm(r.v[tc]); if (!k) return; if (m.has(k)) { d.add(r.id); d.add(m.get(k)); } else m.set(k, r.id); }); return d; };
-  const idle = async () => { for (let i = 0; i < 20; i++) { if (flushP) await flushP; await chain; if (!flushP && !pendingW.size) return; } };
+  const idle = async () => { for (let i = 0; i < 40; i++) { if (running.size) await Promise.all([...running]); if (flushP) await flushP; await chain; await new Promise(r => setTimeout(r, 0)); if (!flushP && !pendingW.size && !running.size) return; } };
 
   // ---------- Automatizaciones: CUANDO <disparador> · SI <condiciones> · ENTONCES <acciones> ----------
   const todayISO = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+  const addDays = (iso, n) => { const d = new Date(iso + 'T12:00:00'); d.setDate(d.getDate() + n); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+  const dayDiff = (a, b) => Math.round((new Date(a + 'T12:00:00') - new Date(b + 'T12:00:00')) / 86400000);
   const condOk = (row, c) => {
-    const v = String(row.v[c.col] ?? ''), empty = !v || v === 'false';
+    const v = String(row.v[c.col] ?? ''), empty = !v || v === 'false', today = todayISO(), d = /^\d{4}-\d{2}-\d{2}/.test(v) ? v.slice(0, 10) : '';
     if (c.op === 'empty') return empty; if (c.op === 'full') return !empty;
     if (c.op === 'is') return v === c.val || v.split(',').map(x => x.trim()).includes(c.val);
     if (c.op === 'isnot') return !(v === c.val || v.split(',').map(x => x.trim()).includes(c.val));
     if (c.op === 'has') return v.toLowerCase().includes(String(c.val || '').toLowerCase());
     if (c.op === 'tab') return row.tab === c.val;
+    if (c.op === 'past') return !!d && d < today; if (c.op === 'future') return !!d && d > today; if (c.op === 'today') return d === today;
+    if (c.op === 'within') return !!d && d >= today && dayDiff(d, today) <= (+c.val || 0);
+    if (c.op === 'folder') { const f = String(row.v[folderCol()] || ''); return c.val === '*none' ? !f : c.val === '*any' ? !!f : f === c.val; }
+    if (c.op === 'color') { const k = String(row.v[colorCol()] || ''); return c.val ? k === c.val : !k; }
+    if (c.op === 'chk') { const p = progressOf(row.id); return c.val === 'done' ? p.total > 0 && p.done === p.total : c.val === 'pending' ? p.total > 0 && p.done < p.total : p.total === 0; }
     return true;
   };
   function triggers(a, kind, tab, info) {
     const w = a.when || {};
     if (w.type === 'create') return kind === 'create';
     if (w.type === 'move') return kind === 'move' && (!w.tab || w.tab === info.to);
+    if (w.type === 'folder') return kind === 'folder' && (!w.folder || w.folder === info.to);
+    if (w.type === 'checklist') return kind === 'checklist';
+    if (w.type === 'comment') return kind === 'comment';
+    if (w.type === 'date') return kind === 'date' && info.aid === a.id;
     if (w.type === 'change') {
       if (kind !== 'change' || info.col !== w.col) return false;
       const after = String(info.after ?? ''), before = String(info.before ?? '');
@@ -768,28 +802,66 @@ export function createStore(api, me, opts = {}) {
     }
     return false;
   }
+  const fill = (txt, row) => String(txt || '').replace(/\{(titulo|title)\}/g, titleOf(row) || tr('Sin título')).replace(/\{(quien|who)\}/g, myName()).replace(/\{(fecha|date)\}/g, todayISO());
+  // Ejecuta las acciones de una automatización, en orden, sobre la fila (que puede cambiar de pestaña a mitad del camino).
+  const running = new Set();
+  function runActions(a, id) { const p = doActions(a, id).finally(() => running.delete(p)); running.add(p); return p; }
+  async function doActions(a, id) {
+    const notes = [];
+    for (const x of a.actions || []) {
+      const cur = findRow(id); if (!cur) break; const T = S.tabs[cur.tab], has = c => c && T.header.includes(c);
+      try {
+        if (x.type === 'set' && has(x.col)) setCell(cur.tab, id, x.col, type(x.col) === 'checkbox' ? x.val === true || x.val === 'true' : x.val, { system: true });
+        if (x.type === 'today' && has(x.col)) setCell(cur.tab, id, x.col, todayISO(), { system: true });
+        if (x.type === 'datePlus' && has(x.col)) { const base = x.from && /^\d{4}-\d{2}-\d{2}/.test(String(cur.v[x.from] || '')) ? String(cur.v[x.from]).slice(0, 10) : todayISO(); setCell(cur.tab, id, x.col, addDays(base, +x.n || 0), { system: true }); }
+        if (x.type === 'clear' && has(x.col)) setCell(cur.tab, id, x.col, type(x.col) === 'checkbox' ? false : '', { system: true });
+        if (x.type === 'copy' && has(x.col) && has(x.from)) setCell(cur.tab, id, x.col, cur.v[x.from], { system: true });
+        if (x.type === 'move' && x.tab && x.tab !== cur.tab && S.tabs[x.tab]) moveRow(cur.tab, id, x.tab, { system: true });
+        if (x.type === 'folder') { if (x.folder && !foldersOf(cur.tab).some(f => f.name === x.folder)) { S.config.folders = [...(S.config.folders || []), { id: newId(), name: x.folder, tab: cur.tab }]; } await moveToFolder(cur.tab, [id], x.folder || '', { system: true }); }
+        if (x.type === 'color') await setRowColor([{ tab: cur.tab, id }], x.color || '', { system: true });
+        if (x.type === 'checklist') { const k = checklists().find(c => c.id === x.list) || checklists()[0]; const p = progressOf(id); if (k && !((S.pages[id] || {}).md || '').includes('## ✅ ' + k.name) && (p.total === 0 || !x.once)) await addChecklist(id, k.name, k.items); }
+        if (x.type === 'checkAll') await checkAll(id, true);
+        if (x.type === 'top' || x.type === 'bottom') { const rs = S.tabs[cur.tab].rows.filter(r => !r.tmp && r.id !== id); if (rs.length) await reorder(cur.tab, id, x.type === 'top' ? rs[0].id : rs[rs.length - 1].id, x.type === 'bottom'); }
+        if (x.type === 'comment' && x.msg) { const c = { id: newId(), rowId: id, author: me.email, name: '⚡ ' + (a.name || tr('Automatización')), at: now(), text: fill(x.msg, cur), parent: '', edited: '', deleted: false }; S.comments = [...S.comments, c]; emit(); enqueue(() => api.append(`${q(APP.comments)}!A1`, [[c.id, c.rowId, c.author, c.name, c.at, c.text, '', '', '']], 'RAW')); }
+        if (x.type === 'dup' && x.tab && S.tabs[x.tab] && S.tabs[x.tab].idCol >= 0) { const v = {}; Object.entries(cur.v).forEach(([k, val]) => { if (S.tabs[x.tab].header.includes(k) && type(k) !== 'auto' && k !== folderCol() && val !== '' && val !== false) v[k] = val; }); const tc = S.config.settings.titleCol; if (tc) v[tc] = (cur.v[tc] || '') + (x.suffix ? ' ' + x.suffix : ''); if (x.col && x.val !== undefined && S.tabs[x.tab].header.includes(x.col)) v[x.col] = x.val; addRow(x.tab, v, { system: true }); }
+        if (x.type === 'notify') {
+          const who = x.to === 'me' ? [myName()] : x.to && x.to.startsWith('col:') ? String(cur.v[x.to.slice(4)] || '').split(',').map(t => t.trim()).filter(Boolean) : x.to && x.to.startsWith('user:') ? [(S.config.users.find(u => u.email === x.to.slice(5)) || {}).name].filter(Boolean) : [];
+          const msg = fill(x.msg || tr('«{titulo}» cambió'), cur);
+          who.forEach(n => { if (n === myName() && opts.notify) opts.notify(a.name || tr('Automatización'), msg); notes.push([cur.tab, id, n, '', msg, 'notify', a.name || tr('Automatización')]); });
+        }
+      } catch (e) { console.warn('automation action', x.type, e); }
+    }
+    if (notes.length) enqueue(() => log(notes));
+  }
   function runAutomations(kind, tab, id, info) {
     const list = (S.config.automations || []).filter(a => a.enabled !== false); if (!list.length || !S.prepared) return;
     for (const a of list) {
       if (!triggers(a, kind, tab, info)) continue;
       const row = S.tabs[tab]?.rows.find(r => r.id === id); if (!row) continue;
       if (!(a.conds || []).every(c => condOk(row, c))) continue;
-      const title = titleOf(row) || tr('Sin título'), notes = [];
-      for (const x of a.actions || []) {
-        const cur = S.order.map(t => S.tabs[t].rows.find(r => r.id === id)).find(Boolean); if (!cur) break;
-        if (x.type === 'set' && cur.tab && S.tabs[cur.tab].header.includes(x.col)) setCell(cur.tab, id, x.col, type(x.col) === 'checkbox' ? x.val === true || x.val === 'true' : x.val, { system: true });
-        if (x.type === 'today' && S.tabs[cur.tab].header.includes(x.col)) setCell(cur.tab, id, x.col, todayISO(), { system: true });
-        if (x.type === 'clear' && S.tabs[cur.tab].header.includes(x.col)) setCell(cur.tab, id, x.col, type(x.col) === 'checkbox' ? false : '', { system: true });
-        if (x.type === 'move' && x.tab && x.tab !== cur.tab) moveRow(cur.tab, id, x.tab, { system: true });
-        if (x.type === 'notify') {
-          const who = x.to === 'me' ? [myName()] : x.to && x.to.startsWith('col:') ? [cur.v[x.to.slice(4)]].filter(Boolean) : x.to && x.to.startsWith('user:') ? [(S.config.users.find(u => u.email === x.to.slice(5)) || {}).name].filter(Boolean) : [];
-          const msg = (x.msg || tr('«{titulo}» cambió')).replace(/\{(titulo|title)\}/g, title).replace(/\{(quien|who)\}/g, myName());
-          who.forEach(n => { if (n === myName() && opts.notify) opts.notify(a.name || tr('Automatización'), msg); notes.push([cur.tab, id, n, '', msg, 'notify', a.name || tr('Automatización')]); });
-        }
-      }
-      if (notes.length) enqueue(() => log(notes));
-      toast('⚡ ' + (a.name || tr('Automatización')) + ': ' + title.slice(0, 40));
+      runActions(a, id);
+      if (!info || !info.quiet) toast('⚡ ' + (a.name || tr('Automatización')) + ': ' + (titleOf(row) || tr('Sin título')).slice(0, 40));
     }
+  }
+  // Disparadores por fecha («N días antes/después de una fecha»): se revisan al abrir y cada 30 minutos.
+  // Cada automatización corre una sola vez por fila y por fecha, y no recupera fechas de hace más de 3 días.
+  let fired = null;
+  function runDateAutomations() {
+    const list = (S.config.automations || []).filter(a => a.enabled !== false && a.when && a.when.type === 'date' && a.when.col); if (!list.length || !S.prepared) return 0;
+    fired = fired || JSON.parse(JSON.stringify(S.config.autoFired || {})); const today = todayISO(); let n = 0;
+    for (const a of list) {
+      const off = (a.when.dir === 'before' ? -1 : a.when.dir === 'after' ? 1 : 0) * (+a.when.n || 0), mine = fired[a.id] || (fired[a.id] = {});
+      for (const t of S.order) for (const r of S.tabs[t].rows) {
+        if (r.tmp) continue; const v = String(r.v[a.when.col] || ''); if (!/^\d{4}-\d{2}-\d{2}/.test(v)) continue;
+        const target = addDays(v.slice(0, 10), off), late = dayDiff(today, target);
+        if (late < 0 || late > 3 || mine[r.id] === v.slice(0, 10)) continue;
+        mine[r.id] = v.slice(0, 10);
+        if ((a.conds || []).every(c => condOk(r, c))) { runActions(a, r.id); n++; }
+      }
+    }
+    if (JSON.stringify(fired) !== JSON.stringify(S.config.autoFired || {})) { S.config.autoFired = fired; saveConfig(); }
+    if (n) toast(tr('⚡ {n} automatizaciones por fecha se ejecutaron', { n }));
+    return n;
   }
   // Automatizaciones de ejemplo que se agregan una sola vez si las columnas existen.
   function seedAutomations() {
@@ -802,5 +874,5 @@ export function createStore(api, me, opts = {}) {
     return true;
   }
   const searchPages = (qy, rows) => { const k = norm(qy); if (k.length < 2) return []; const out = []; for (const r of rows) { const md = S.pages[r.id]?.md; if (!md) continue; const i = norm(md).indexOf(k); if (i >= 0) out.push({ row: r, snippet: md.replace(/[#*>`\[\]-]/g, ' ').replace(/\s+/g, ' ').slice(Math.max(0, i - 30), i + 70) }); } return out; };
-  return { runAutomations, todayISO, autoFill, setMany, undoLast, redoLast, setPageMeta, setPresence, editComment, deleteComment, searchPages, S, subscribe: f => { subs.add(f); return () => subs.delete(f); }, emit, toast, init, refresh, prepare, can, canEditCol, hiddenCols, hiddenTabs, type, myName, perms, setCell, resolveConflict, addRow, deleteRow, moveRow, reorder, undo, addColumn, renameColumn, deleteColumn, addTab, renameTab, tabNameError, deleteTab, restoreTab, canRestoreTab, undoable, folderCol, foldersOf, addFolder, dropRow, colorCol, setRowColor, ensureSysCol, moveToFolder, renameFolder, deleteFolder, syncGroups, folderNameError, renameOption, saveConfig, savePage, addComment, allRows, duplicates, idle, api };
+  return { runAutomations, todayISO, autoFill, setMany, undoLast, redoLast, setPageMeta, setPresence, editComment, deleteComment, searchPages, S, subscribe: f => { subs.add(f); return () => subs.delete(f); }, emit, toast, init, refresh, prepare, can, canEditCol, hiddenCols, hiddenTabs, type, myName, perms, setCell, resolveConflict, addRow, deleteRow, moveRow, reorder, undo, addColumn, renameColumn, deleteColumn, addTab, renameTab, tabNameError, deleteTab, restoreTab, canRestoreTab, undoable, folderCol, foldersOf, addFolder, dropRow, colorCol, setRowColor, ensureSysCol, progressOf, addChecklist, checkAll, checklists, defaultChecklists, runDateAutomations, addDays, moveToFolder, renameFolder, deleteFolder, syncGroups, folderNameError, renameOption, saveConfig, savePage, addComment, allRows, duplicates, idle, api };
 }

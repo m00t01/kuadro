@@ -117,6 +117,15 @@ function Comments({ st, row }) {
     {st.can('comment') && !row.tmp && <div class="askbar"><MentionInput st={st} value={msg} setValue={setMsg} onSubmit={send} placeholder={tr("Escribe un comentario… usa @ para mencionar a alguien (Shift+Enter: nueva línea)")} /><button class="btn" onClick={send}>{tr("Enviar")}</button></div>}</div>;
 }
 
+// Progreso de la checklist de la página y botón para agregar una checklist predefinida.
+function ChecklistBar({ st, row }) {
+  const [open, setOpen] = useState(false), ref = useRef(), p = st.progressOf(row.id), can = st.can('editPages') && !row.tmp;
+  return <div class="chkbar">{p.total > 0 && <span class={'prog' + (p.done === p.total ? ' full' : '')} title={tr('{d} de {t} tareas hechas', { d: p.done, t: p.total })}><span class="pt"><i style={{ width: Math.round(100 * p.done / p.total) + '%' }} /></span><b>{p.done}/{p.total}</b></span>}
+    {can && p.total > 0 && p.done < p.total && <button class="mini" onClick={() => st.checkAll(row.id, true)}>{tr("Marcar todo")}</button>}
+    {can && <button class="mini" ref={ref} onClick={() => setOpen(true)}>{tr("＋ Checklist")}</button>}
+    {open && <Pop anchor={ref.current} onClose={() => setOpen(false)}><div class="ctx-t">{tr("Agregar checklist")}</div>{st.checklists().map(c => <div class="pop-i" onClick={() => { st.addChecklist(row.id, c.name, c.items); setOpen(false); }}><b>{c.name}</b> <span class="muted sm">{tr('{n} tareas', { n: c.items.length })}</span></div>)}
+      <div class="pop-i muted" onClick={() => { st.addChecklist(row.id, '', [tr('Nueva tarea')]); setOpen(false); }}>{tr("Checklist vacía")}</div></Pop>}</div>;
+}
 export function RowPage({ st, row, onClose, dup, onMoved }) {
   const S = st.S, s = S.config.settings, tc = s.titleCol, [full, setFull] = useState(false), [title, setTitle] = useState(row.v[tc] || ''), [iconPop, setIconPop] = useState(false), [coverPop, setCoverPop] = useState(false), [emo, setEmo] = useState('');
   const focus = useRef(false), ta = useRef(), iconRef = useRef(), coverRef = useRef();
@@ -145,8 +154,8 @@ export function RowPage({ st, row, onClose, dup, onMoved }) {
         <div class="props">{cols.map(c => <div class="prop"><div class="pl"><span class="tyi">{ICON[st.type(c)]}</span>{c}</div><div class="pv"><Field st={st} row={row} col={c} big /></div></div>)}</div>
         <References st={st} row={row} />
         {recentMerge && <div class="info">↻ {tr('Se combinaron tus cambios con los de {x}', { x: who(st, merged.by) })}{merged.clean ? '.' : tr('; revisa el texto, había cambios en el mismo párrafo.')}</div>}
-        <h4 class="sec">{tr("Guion y notas")}</h4>
-        <RichEditor key={row.id} value={(S.pages[row.id] || {}).md || ''} version={merged && merged.at} editable={st.can('editPages') && !row.tmp} onChange={md => st.savePage(row.id, md)} onImage={st.ui.canUpload && st.can('upload') ? f => st.ui.uploadFile(f) : null} />
+        <div class="sec-row"><h4 class="sec">{tr("Guion y notas")}</h4><ChecklistBar st={st} row={row} /></div>
+        <RichEditor key={row.id} value={(S.pages[row.id] || {}).md || ''} version={String((merged && merged.at) || '') + ':' + ((S.pageRev || {})[row.id] || '')} editable={st.can('editPages') && !row.tmp} onChange={md => st.savePage(row.id, md)} onImage={st.ui.canUpload && st.can('upload') ? f => st.ui.uploadFile(f) : null} />
         <YTPreview st={st} row={row} meta={meta} setMeta={p => canMeta && setMeta(p)} />
         <Comments st={st} row={row} />
         {st.can('viewHistory') && <div><h4 class="sec">{tr("Historial")}</h4><HistList st={st} list={hist} /></div>}
