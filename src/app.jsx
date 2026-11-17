@@ -44,7 +44,6 @@ function Appearance({ value, onChange }) {
     <button class="btn" onClick={() => onChange({ ...APPEAR0 })}>{tr("Restablecer")}</button>
     <p class="hint">{tr("La apariencia es personal: solo cambia en esta computadora, no para tu equipo.")}</p>
     {native && native.prefs && <Shortcuts />}
-    <DateAlerts />
   </div>;
 }
 // Idioma de la interfaz (cada persona elige; se guarda en esta computadora).
@@ -213,7 +212,7 @@ function ChecklistSettings({ st }) {
 // Avisos de fechas: preferencia personal.
 function DateAlerts() {
   const [p, setP] = useState(alertPrefs()), up = x => { setAlertPrefs(x); setP(alertPrefs()); };
-  return <div class="f" style={{ marginTop: '18px' }}><b class="tx">{tr("Avisos de fechas")}</b>
+  return <div class="f"><b class="tx">{tr("Avisos de fechas")}</b>
     <label class="chkrow"><input type="checkbox" checked={p.on} onChange={e => up({ on: e.target.checked })} />{tr("Avisarme de videos atrasados o por vencer (bandeja 🔔 y una notificación al día)")}</label>
     {p.on && <div class="lrow0"><span>{tr("Avisar desde")}</span><input type="number" min="0" max="30" style={{ width: '64px' }} value={p.days} onInput={e => up({ days: Math.max(0, Math.min(30, +e.target.value || 0)) })} /><span>{tr("días antes")}</span>
       <select value={p.scope} onChange={e => up({ scope: e.target.value })}><option value="mine">{tr("de lo que tengo asignado")}</option><option value="all">{tr("de todo el proyecto")}</option></select></div>}
@@ -306,7 +305,7 @@ const SIP = {
   gear: 'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z',
   cols: 'M4 4h16v16H4zM9.5 4v16M14.5 4v16', tpl: 'M6 3h9l4 4v14H6zM15 3v4h4M9 12h7M9 16h5', chk: 'M9 11l2.5 2.5L16 9M4 4h16v16H4z',
   shield: 'M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z', users: 'M16 20v-1.5a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4V20M9.5 11a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7zM21 20v-1.5a4 4 0 0 0-3-3.9M16 4.1a3.5 3.5 0 0 1 0 6.8',
-  bolt: 'M13 2L4 14h7l-1 8 9-12h-7z', play: 'M3 6a3 3 0 0 1 3-3h12a3 3 0 0 1 3 3v12a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3zM10 8.5v7l6-3.5z',
+  bolt: 'M13 2L4 14h7l-1 8 9-12h-7z', bell: 'M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.9 1.9 0 0 0 3.4 0', play: 'M3 6a3 3 0 0 1 3-3h12a3 3 0 0 1 3 3v12a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3zM10 8.5v7l6-3.5z',
   brush: 'M9.5 14.5l-3 3a2.1 2.1 0 0 1-3-3l3-3M14 4l6 6-8.5 8.5-6-6z', clock: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 7v5l3 2',
 };
 const SI = ({ n }) => <svg class="si" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><path d={SIP[n]} /></svg>;
@@ -319,7 +318,8 @@ function Settings({ st, onClose, onCol, onAddCol, start }) {
     ['tpl', tr('Plantillas'), admin, 'tpl', 'p', 'plantilla nueva pagina template'], ['chk', tr('Checklists'), admin, 'chk', 'p', 'tareas checklist pendientes tasks'],
     ['roles', tr('Roles'), admin, 'shield', 't', 'permisos roles permissions'], ['users', tr('Usuarios'), admin, 'users', 't', 'personas correo equipo people email team'],
     ['auto', tr('Automatizaciones'), admin, 'bolt', 'a', 'automatizacion reglas cuando entonces plantillas automation rules'], ['yt', 'YouTube', admin, 'play', 'a', 'clave api vistas miniatura key views'],
-    ['look', tr('Apariencia y atajos'), true, 'brush', 'y', 'tema fondo colores idioma atajo bandeja actualizaciones fechas avisos theme background language shortcut tray updates alerts'],
+    ['look', tr('Apariencia y atajos'), true, 'brush', 'y', 'tema fondo colores idioma atajo bandeja captura rápida theme background language shortcut tray quick capture'],
+    ['notif', tr('Notificaciones'), true, 'bell', 'y', 'avisos fechas atrasados vencer notificaciones alertas alerts notifications late due'],
     ['hist', tr('Historial'), st.can('viewHistory'), 'clock', 'h', 'historial restaurar deshacer eliminado history restore undo deleted'],
   ].filter(x => x[2]);
   const [colOpen, setColOpen] = useState(null), [sq, setSq] = useState(''), nq = norm(sq.trim()), shown = nq ? secs.filter(x => nq.split(/\s+/).every(w => norm(x[1] + ' ' + x[5]).includes(w))) : secs;
@@ -336,6 +336,7 @@ function Settings({ st, onClose, onCol, onAddCol, start }) {
       <p class="hint">{tr('Dueño del proyecto:')} {c.owner}. {tr('El dueño siempre tiene todos los permisos.')}</p></div>}
     {sec === 'yt' && <YTSettings st={st} />}
     {sec === 'chk' && <ChecklistSettings st={st} />}
+    {sec === 'notif' && <DateAlerts />}
     {sec === 'cols' && colOpen && <ColumnEditor st={st} col={colOpen} inline onClose={() => setColOpen(null)} />}
     {sec === 'cols' && !colOpen && <div>{names.map(n => <div class="lrow click" onClick={() => setColOpen(n)}><span class="tyi">{ICON[st.type(n)]}</span><b>{n}</b><span class="muted">{TYPES[st.type(n)]}{(c.schema[n]?.options || []).length ? ` · ${c.schema[n].options.length} opciones` : ''}</span></div>)}
       {st.can('manageColumns') && <button class="btn" onClick={onAddCol}>{tr("+ Agregar columna")}</button>}</div>}
