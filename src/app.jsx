@@ -707,6 +707,21 @@ function Home({ user, setUser, projects, setProjects, onOpen }) {
 function App() {
   const [appear, setAppearS] = useState(() => ({ ...APPEAR0, ...LS.get('appearance', {}) })); const setAppear = v => { setAppearS(v); try { localStorage.setItem('appearance', JSON.stringify(v)); } catch { alert(tr('La imagen es demasiado grande para guardarse; prueba con otra más pequeña.')); } };
   useEffect(() => { const ap = () => { const r = document.documentElement; Object.entries(appearStyle(appear)).forEach(([k, v]) => r.style.setProperty(k, v)); document.body.classList.toggle('has-img', !!appear.image); document.body.classList.toggle('light', isLight(appear) && !appear.image); }; ap(); const mq = matchMedia('(prefers-color-scheme: light)'); mq.addEventListener('change', ap); return () => mq.removeEventListener('change', ap); }, [appear]);
+  // Fondo con imagen: el desenfoque y el oscurecido se «hornean» una vez en la imagen, que queda como fondo normal del body.
+  // Así no hay capas aparte detrás del texto y Windows puede usar ClearType (texto nítido). Si no se puede, queda el método anterior.
+  useEffect(() => {
+    const b = document.body, src = appear.image; b.classList.remove('img-flat'); if (!src) return;
+    let dead = false; const img = new Image(); img.crossOrigin = 'anonymous';
+    img.onload = () => { if (dead) return; try {
+      const dpr = Math.min(2, window.devicePixelRatio || 1), W = Math.round(Math.min(2560, screen.width * dpr)), H = Math.round(Math.min(1600, screen.height * dpr));
+      const c = document.createElement('canvas'); c.width = W; c.height = H; const x = c.getContext('2d'), blur = (appear.blur || 0) * dpr, pad = blur * 2;
+      const k = Math.max((W + 2 * pad) / img.width, (H + 2 * pad) / img.height), w = img.width * k, h = img.height * k;
+      if (blur) x.filter = `blur(${blur}px)`; x.drawImage(img, (W - w) / 2, (H - h) / 2, w, h); x.filter = 'none';
+      x.fillStyle = `rgba(0,0,0,${(appear.dim ?? 45) / 100})`; x.fillRect(0, 0, W, H);
+      document.documentElement.style.setProperty('--app-bgimg', `url("${c.toDataURL('image/jpeg', 0.92)}")`); b.classList.add('img-flat');
+    } catch { b.classList.remove('img-flat'); } };
+    img.src = src; return () => { dead = true; };
+  }, [appear.image, appear.blur, appear.dim]);
   const [user, setUser] = useState(null), [projects, setP] = useState(LS.get('projects', [])), [cur, setCur] = useState(LS.get('current', null)), [st, setSt] = useState(null), [boot, setBoot] = useState(!!native);
   const appearRef = useRef(appear), appearSet = useRef(setAppear); appearRef.current = appear; appearSet.current = setAppear;
   const setProjects = p => { setP(p); LS.set('projects', p); };
