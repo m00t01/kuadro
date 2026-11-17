@@ -157,6 +157,30 @@ const TICON = {
   tasks: 'M9 11l2.5 2.5L16 9M4 4h16v16H4z',
 };
 const TI = ({ d }) => <svg class="ti" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><path d={d} /></svg>;
+// Ajustes de YouTube: qué funciona sin clave, cómo obtener la clave y botón para probarla.
+function YTSettings({ st }) {
+  const c = st.S.config, [key, setKey] = useState(c.settings.ytKey || ''), [show, setShow] = useState(false), [res, setRes] = useState(null);
+  const save = v => { c.settings.ytKey = v.trim(); st.saveConfig(); };
+  const test = async () => {
+    const k = key.trim(); if (!k) { setRes({ ok: false, msg: tr('Pega primero tu clave.') }); return; }
+    setRes({ busy: true });
+    try { const get = u => native ? native.json(u) : fetch(u).then(async r => { const d = await r.json(); if (!r.ok) throw new Error((d.error && d.error.message) || ('HTTP ' + r.status)); return d; });
+      const d = await get('https://www.googleapis.com/youtube/v3/videos?part=statistics&id=dQw4w9WgXcQ&key=' + encodeURIComponent(k));
+      const v = d.items && d.items[0] && d.items[0].statistics; if (!v) throw new Error(tr('La respuesta no trae estadísticas.'));
+      setRes({ ok: true, msg: tr('¡Funciona! Video de prueba: {n} vistas.', { n: Number(v.viewCount).toLocaleString(LOCALE) }) }); if (k !== (c.settings.ytKey || '')) save(k);
+    } catch (e) { const m = String(e.message || e).replace(/^Error invoking remote method '[^']+': (Error: )?/, ''); setRes({ ok: false, msg: /API key not valid|keyInvalid|400/i.test(m) ? tr('Google dice que la clave no es válida. Revisa que la copiaste completa.') : /has not been used|disabled|accessNotConfigured|403/i.test(m) ? tr('La clave existe, pero falta habilitar «YouTube Data API v3» en tu proyecto de Google Cloud (paso 2).') : m }); }
+  };
+  return <div>
+    <p class="hint">{tr("Cuando una fila tiene un enlace de YouTube, su página muestra el título y la miniatura de ese video en «Referencias», con botones para usarlos. Esto funciona sin configurar nada.")}</p>
+    <p class="hint">{tr("Con una clave de la API de YouTube (gratis) también se muestran las vistas públicas de esos videos.")}</p>
+    <ol class="steps"><li>{tr("Entra a console.cloud.google.com (puedes usar el mismo proyecto de tu credencial de Google).")}</li><li>{tr("En «APIs y servicios → Biblioteca» busca y habilita")}{' '}<b>YouTube Data API v3</b>.</li><li>{tr("En «Credenciales → Crear credenciales → Clave de API», copia la clave y pégala aquí.")}</li></ol>
+    <label class="f">{tr("Clave de API de YouTube")}<div class="lrow0"><input class="grow" type={show ? 'text' : 'password'} placeholder="AIza…" value={key} onInput={e => { setKey(e.target.value); setRes(null); }} onBlur={() => key.trim() !== (c.settings.ytKey || '') && save(key)} />
+      <button class="btn" onClick={() => setShow(!show)}>{show ? tr('Ocultar') : tr('Mostrar')}</button><button class="btn primary" disabled={res && res.busy} onClick={test}>{res && res.busy ? tr('Probando…') : tr('Probar clave')}</button>
+      {c.settings.ytKey && <button class="btn" onClick={() => { setKey(''); save(''); setRes(null); }}>{tr('Quitar')}</button>}</div></label>
+    {res && !res.busy && <p class="hint" style={{ color: res.ok ? '#7fd1a5' : '#ff8f87' }}>{res.msg}</p>}
+    <p class="hint">{tr("La clave se guarda en la configuración del proyecto (en una pestaña oculta de tu Sheet), así que la usan todos en tu equipo. Quien tenga acceso de edición al Sheet podría verla; si te preocupa, en Google Cloud puedes limitarla solo a «YouTube Data API v3».")}</p>
+  </div>;
+}
 // Color de fondo de una columna del kanban.
 const COLBG = ['', 'gray', 'brown', 'orange', 'yellow', 'green', 'blue', 'purple', 'pink', 'red'];
 const COLBG_NAME = { '': tr('Sin color'), gray: tr('Gris'), brown: tr('Café'), orange: tr('Naranja'), yellow: tr('Amarillo'), green: tr('Verde'), blue: tr('Azul'), purple: tr('Morado'), pink: tr('Rosa'), red: tr('Rojo') };
@@ -213,14 +237,14 @@ function ColList({ label, all, value, onChange, hint }) {
 function Settings({ st, onClose, onCol, onAddCol, start }) {
   const S = st.S, c = S.config, [sec, setSec] = useState(start || 'general'), [rid, setRid] = useState(c.roles[0]?.id), [uopen, setUopen] = useState(null), [nu, setNu] = useState({ email: '', name: '' }), [tid, setTid] = useState(0);
   const admin = st.can('admin'), save = () => st.saveConfig(); const names = [...new Set(S.order.flatMap(t => S.tabs[t].header))].filter(h => h && h !== 'ID');
-  const secs = [['general', tr('General'), admin], ['cols', tr('Columnas'), true], ['roles', tr('Roles'), admin], ['users', tr('Usuarios'), admin], ['tpl', tr('Plantillas'), admin], ['auto', tr('Automatizaciones'), admin], ['look', tr('Apariencia y atajos'), true], ['hist', tr('Historial'), st.can('viewHistory')]].filter(x => x[2]);
+  const secs = [['general', tr('General'), admin], ['cols', tr('Columnas'), true], ['roles', tr('Roles'), admin], ['users', tr('Usuarios'), admin], ['tpl', tr('Plantillas'), admin], ['auto', tr('Automatizaciones'), admin], ['yt', 'YouTube', admin], ['look', tr('Apariencia y atajos'), true], ['hist', tr('Historial'), st.can('viewHistory')]].filter(x => x[2]);
   const role = c.roles.find(r => r.id === rid), sel = (k, label, types) => <label class="f">{label}<select value={c.settings[k]} onChange={e => { c.settings[k] = e.target.value; save(); }}><option value="">{tr("(ninguna)")}</option>{names.filter(n => !types || types.includes(st.type(n))).map(n => <option>{n}</option>)}</select></label>;
   const tpl = c.templates[tid];
   return <Modal title={tr("Ajustes del proyecto")} onClose={onClose} wide><div class="set"><nav>{secs.map(([k, l]) => <button class={sec === k ? 'on' : ''} onClick={() => setSec(k)}>{l}</button>)}</nav><div class="set-b">
     {sec === 'general' && <div>{sel('titleCol', tr('Columna de título (la que se abre como página)'))}{sel('groupCol', tr('Columna que agrupa el kanban'), ['select', 'person'])}{sel('dateCol', tr('Columna de fecha del calendario'), ['date'])}{sel('imageCol', tr('Columna de imagen de la galería'), ['image', 'url'])}
       <label class="f">{tr("Rol para quien no está en la lista de usuarios")}<select value={c.defaultRoleId} onChange={e => { c.defaultRoleId = e.target.value; save(); }}>{c.roles.map(r => <option value={r.id}>{r.name}</option>)}</select></label>
-      <label class="f">{tr("Clave de API de YouTube (opcional, para mostrar vistas)")}<input value={c.settings.ytKey} onBlur={e => { c.settings.ytKey = e.target.value.trim(); save(); }} /></label>
       <p class="hint">{tr('Dueño del proyecto:')} {c.owner}. {tr('El dueño siempre tiene todos los permisos.')}</p></div>}
+    {sec === 'yt' && <YTSettings st={st} />}
     {sec === 'cols' && <div>{names.map(n => <div class="lrow click" onClick={() => onCol(n)}><span class="tyi">{ICON[st.type(n)]}</span><b>{n}</b><span class="muted">{TYPES[st.type(n)]}{(c.schema[n]?.options || []).length ? ` · ${c.schema[n].options.length} opciones` : ''}</span></div>)}
       {st.can('manageColumns') && <button class="btn" onClick={onAddCol}>{tr("+ Agregar columna")}</button>}</div>}
     {sec === 'roles' && <div class="two"><div class="side">{c.roles.map(r => <button class={r.id === rid ? 'on' : ''} onClick={() => setRid(r.id)}>{r.name}</button>)}
@@ -365,13 +389,16 @@ function Workspace({ st, name, onHome }) {
     ] }); };
   const [askFolder, setAskFolder] = [folderAsk, setFolderAsk];
   const toggleFold = k => setPrefs({ folded: folded.has(k) ? [...folded].filter(x => x !== k) : [...folded, k] });
-  const folderItems = (tab, ids, curName) => { const fs = st.foldersOf(tab); return [...fs.map(f => ({ label: '📁 ' + f.name, check: curName === f.name, onClick: () => curName !== f.name && st.moveToFolder(tab, ids, f.name) })), fs.length && 'sep', { label: tr('Nueva carpeta…'), onClick: () => setAskFolder({ tab, ids, name: '' }) }, curName !== undefined && curName !== null && curName !== '' && { label: tr('Sacar de la carpeta'), onClick: () => st.moveToFolder(tab, ids, '') }].filter(Boolean); };
-  const folderOps = { toggle: toggleFold, can: st.can('moveCards'), newFolder: view === 'table' ? () => setAskFolder({ tab: cur === '*' ? tabs[0] : cur, ids: [], name: '' }) : null,
+  const folderItems = (tab, ids, curName) => { const fs = st.foldersOf(tab); return [...fs.map(f => ({ label: '📁 ' + f.name, check: curName === f.name, onClick: () => { if (curName !== f.name) st.moveToFolder(tab, ids, f.name); setSel(new Set()); } })), fs.length && 'sep', { label: tr('Nueva carpeta…'), onClick: () => setAskFolder({ tab, ids, name: '' }) }, curName !== undefined && curName !== null && curName !== '' && { label: tr('Sacar de la carpeta'), onClick: () => { st.moveToFolder(tab, ids, ''); setSel(new Set()); } }].filter(Boolean); };
+  const pinned = new Set(prefs.pinFolders || []);
+  const folderOps = { toggle: toggleFold, can: st.can('moveCards'), isPinned: k => pinned.has(k), newFolder: view === 'table' ? () => setAskFolder({ tab: cur === '*' ? tabs[0] : cur, ids: [], name: '' }) : null,
     drop: (h, from, id) => { if (from !== h.tab) { st.toast(tr('Solo puedes meter en esta carpeta filas de la pestaña «{t}».', { t: h.tab }), 'error'); return; } st.moveToFolder(h.tab, [id], h.name); },
     rename: (h, v) => st.renameFolder(h.tab, h.name, v).then(n => { if (n && n !== h.name) { const nk = h.tab + '|' + n; if (folded.has(h.key)) setPrefs({ folded: [...folded].filter(x => x !== h.key).concat(nk) }); } return n; }),
     menu: (e, h, startRename) => { e.preventDefault(); e.stopPropagation(); const keys = (fold ? fold.heads : []).map(x => x.key);
       setMenu({ x: e.clientX, y: e.clientY, title: '📁 ' + h.name, items: [
         { label: h.closed ? tr('Expandir') : tr('Colapsar'), onClick: () => toggleFold(h.key) },
+        { label: tr('Fijar nombre al desplazar'), hint: tr('solo esta carpeta'), check: pinned.has(h.key), onClick: () => setPrefs({ pinFolders: pinned.has(h.key) ? [...pinned].filter(k => k !== h.key) : [...pinned, h.key] }) },
+        'sep',
         { label: tr('Colapsar todas'), onClick: () => setPrefs({ folded: [...new Set([...folded, ...keys])] }) },
         { label: tr('Expandir todas'), onClick: () => setPrefs({ folded: [...folded].filter(k => !keys.includes(k)) }) },
         st.can('moveCards') && 'sep',
@@ -404,7 +431,7 @@ function Workspace({ st, name, onHome }) {
       st.can('deleteRows') && { label: n === 1 ? tr('Eliminar') : tr('Eliminar {n} filas', { n }), danger: true, onClick: () => { if (confirm(tr(n === 1 ? '¿Eliminar 1 elemento del Sheet?' : '¿Eliminar {n} elementos del Sheet?', { n }))) { list.forEach(r => st.deleteRow(r.tab, r.id)); setSel(new Set()); } } },
     ] };
   };
-  const onMenu = (e, ctx) => { e.preventDefault(); e.stopPropagation(); const m = ctx.multi ? multiMenu(ctx) : ctx.row ? rowMenu(ctx) : colMenu(ctx); setMenu({ x: e.clientX, y: e.clientY, ...m }); };
+  const onMenu = (e, ctx) => { e.preventDefault(); e.stopPropagation(); const m = ctx.nums ? { title: tr('Números de fila'), items: [{ label: prefs.hideNums ? tr('Mostrar números de fila') : tr('Ocultar números de fila'), onClick: () => setPrefs({ hideNums: !prefs.hideNums }) }, { label: tr('Alto de filas'), sub: rowHItems() }] } : ctx.multi ? multiMenu(ctx) : ctx.row ? rowMenu(ctx) : colMenu(ctx); setMenu({ x: e.clientX, y: e.clientY, ...m }); };
   // Edición masiva desde la barra de selección
   const bulkMenu = (e, kind, list) => {
     const b = e.currentTarget.getBoundingClientRect(), at = { x: b.left, y: b.top - 8 };
@@ -453,6 +480,7 @@ function Workspace({ st, name, onHome }) {
         <button class="btn" onClick={() => setFilters([...filters, { col: s.groupCol || baseCols[0], op: 'is', val: '' }])}>{tr("+ Agregar filtro")}</button></div></Pop>}
       {colsPop && view === 'table' && <Pop anchor={cref.current} onClose={() => setColsPop(false)} width={300}><div class="ctx-t">{tr("Columnas visibles en esta vista")}</div>
         {ordered.map(c => <label class="pop-i chkrow"><input type="checkbox" disabled={c === s.titleCol} checked={!(prefs.hidden || []).includes(c)} onChange={e => setPrefs({ hidden: e.target.checked ? (prefs.hidden || []).filter(x => x !== c) : [...(prefs.hidden || []), c] })} /><span class="tyi">{ICON[st.type(c)]}</span>{c}</label>)}
+        <label class="pop-i chkrow"><input type="checkbox" checked={!prefs.hideNums} onChange={e => setPrefs({ hideNums: !e.target.checked })} />{tr("Mostrar números de fila")}</label>
         <div class="ctx-t">{tr("Alto de filas")}</div><div class="pad"><div class="seg sm-seg"><button class={prefs.rowH !== 'compact' ? 'on' : ''} onClick={() => setPrefs({ rowH: '' })}>{tr("Ajustar al contenido")}</button><button class={prefs.rowH === 'compact' ? 'on' : ''} onClick={() => setPrefs({ rowH: 'compact' })}>{tr("Una sola línea")}</button></div></div>
         <div class="pop-i muted" onClick={() => setPrefs({ hidden: [], order: [], widths: {} })}>{tr("Restablecer columnas (orden, ancho y visibles)")}</div>
         <p class="hint pad">{tr("Arrastra los encabezados para reordenar y su borde derecho para cambiar el ancho.")}</p></Pop>}
@@ -478,7 +506,7 @@ function Workspace({ st, name, onHome }) {
       <label class="f">{tr("Tipo")}<select value={addCol.type} onChange={e => setAddCol({ ...addCol, type: e.target.value })}>{Object.entries(TYPES).map(([k, l]) => <option value={k}>{l}</option>)}</select></label>
       {cur !== '*' && tabs.length > 1 && <label class="chk"><input type="checkbox" checked={addCol.all} onChange={e => setAddCol({ ...addCol, all: e.target.checked })} />{tr("Agregar en todas las pestañas")}</label>}
       <div class="row-end"><button class="btn primary" onClick={() => { if (addCol.name.trim()) { st.addColumn(addCol.name, addCol.type, addCol.all || cur === '*' ? S.order : [cur]); setAddCol(null); } }}>{tr("Crear columna")}</button></div></Modal>}
-    {folderAsk && <Modal title={tr("Nueva carpeta")} onClose={() => setFolderAsk(null)}><FolderForm st={st} ask={folderAsk} onDone={() => setFolderAsk(null)} /></Modal>}
+    {folderAsk && <Modal title={tr("Nueva carpeta")} onClose={() => setFolderAsk(null)}><FolderForm st={st} ask={folderAsk} onDone={() => { setFolderAsk(null); if (folderAsk.ids && folderAsk.ids.length) setSel(new Set()); }} /></Modal>}
       {tplAsk && <Modal title={tr("Nuevo elemento")} onClose={() => setTplAsk(null)}><div class="lrow click" onClick={() => { create(tplAsk.values, tplAsk.card); setTplAsk(null); }}><b>{tr("En blanco")}</b></div>{S.config.templates.map(t => <div class="lrow click" onClick={() => { create(tplAsk.values, tplAsk.card, t); setTplAsk(null); }}><b>{t.name}</b><span class="muted">{tr("Plantilla")}</span></div>)}</Modal>}
     {pal && <div class="overlay top" onMouseDown={e => { if (e.target === e.currentTarget) setPal(false); }}><div class="palette"><input ref={af} placeholder={tr("Buscar en títulos y guiones de todas las pestañas…")} value={pq} onInput={e => { setPq(e.target.value); setPhi(0); }}
       onKeyDown={e => { if (e.key === 'Escape') setPal(false); if (e.key === 'ArrowDown') { e.preventDefault(); setPhi(Math.min(phi + 1, pAll.length - 1)); } if (e.key === 'ArrowUp') { e.preventDefault(); setPhi(Math.max(phi - 1, 0)); } if (e.key === 'Enter' && pAll[phi]) { open(pAll[phi].row); setPal(false); } }} />

@@ -289,3 +289,10 @@ body.light .sidebar{background:var(--side)}body.light .nav .badge{color:#fff}
 .grid td.num.inf .n{position:relative;z-index:1}
 body.light .grid tr.fhead td{background:#f4f3f0}
 .btn.ib{display:inline-flex;align-items:center;gap:6px;padding-left:9px;padding-right:9px}.btn.ib .ti{flex:none;opacity:.9}.ib-n{font-size:12px;font-weight:600}
+/* Números de fila ocultos */
+.grid.nonum td.num .n{display:none}.grid.nonum td.num{padding:0;text-align:center}.grid.nonum th.num{padding:0;text-align:center}.grid.nonum td.num.inf::before,.grid.nonum td.num.fh-num.open::before{left:5px}.grid.nonum td.num.inf-last::before,.grid.nonum td.num.fh-num.open::before{right:3px}
+.grid.nonum td.num .h{font-size:11px}
+/* Encabezado de carpeta fijo mientras se ven sus filas */
+.grid tr.fhead.pin td{position:sticky;top:var(--pt,var(--thh,35px));z-index:3;background:linear-gradient(rgba(255,255,255,.06),rgba(255,255,255,.06)),var(--bg);box-shadow:0 1px 0 var(--line)}
+.grid tr.fhead.pin td.num{left:0;z-index:4}.fh-pin{font-size:11px;opacity:.7}
+body.light .grid tr.fhead.pin td{background:#f4f3f0}

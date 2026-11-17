@@ -56,7 +56,7 @@ ipcMain.handle('auth:creds', () => { const c = load(); return { clientId: c.clie
 ipcMain.handle('auth:login', (_e, creds) => login(creds));
 ipcMain.handle('auth:logout', () => { const c = load(); delete c.refresh; delete c.user; save(c); access = null; });
 ipcMain.handle('auth:token', (_e, force) => token(force));
-ipcMain.handle('net:json', async (_e, url) => { const h = new URL(url).hostname; if (!['www.youtube.com', 'www.googleapis.com'].includes(h)) throw new Error('Host no permitido'); const r = await fetch(url); if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); });
+ipcMain.handle('net:json', async (_e, url) => { const h = new URL(url).hostname; if (!['www.youtube.com', 'www.googleapis.com'].includes(h)) throw new Error('Host no permitido'); const r = await fetch(url); if (!r.ok) { let msg = 'HTTP ' + r.status; try { const d = await r.json(); if (d.error && d.error.message) msg += ': ' + d.error.message; } catch { } throw new Error(msg); } return r.json(); });
 // Las llamadas a Google salen desde aquí, no desde la ventana, para no depender de CORS.
 ipcMain.handle('net:fetch', async (_e, url, o) => {
   if (!['sheets.googleapis.com', 'www.googleapis.com'].includes(new URL(url).hostname)) throw new Error('Host no permitido');
