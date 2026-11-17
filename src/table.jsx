@@ -2,17 +2,19 @@
 // Además: columnas con ancho ajustable, reordenables y ocultables (por persona), título fijo y selección de filas.
 import { useState, useEffect, useRef } from 'preact/hooks';
 import { Field } from './ui.jsx';
-import { ICON, parseFor } from './shared.jsx';
+import { ICON, parseFor, copyText } from './shared.jsx';
 import { fmtDate, urls } from './util.js';
 import { t as tr } from './i18n.js';
 
 const DEFAULT_W = (st, c, tc) => c === tc ? 380 : ({ checkbox: 110, auto: 70, date: 130, number: 110 }[st.type(c)] || 160);
 const cellText = (st, r, c) => { const ty = st.type(c), v = r.v[c]; if (ty === 'checkbox') return v ? 'TRUE' : 'FALSE'; if (ty === 'date') return v ? fmtDate(v) : ''; return String(v ?? ''); };
 
-export function TableView({ st, rows, cols, open, onCol, onAddCol, onNew, dups, onMenu, prefs, setPrefs, sel, setSel, icons }) {
+export function TableView({ st, rows, cols, open, onCol, onAddCol, onNew, dups, onMenu, prefs, setPrefs, sel, setSel, icons, hiddenRows }) {
   const S = st.S, tc = S.config.settings.titleCol, canCol = st.can('manageColumns') || st.can('manageOptions');
   const [act, setAct] = useState(null), [anchor, setAnchor] = useState(null), [signal, setSignal] = useState({ n: 0 }), [dragCol, setDragCol] = useState(null), [overCol, setOverCol] = useState(null);
-  const box = useRef(), lastRow = useRef(null), guard = useRef(null);
+  const box = useRef(), lastRow = useRef(null), guard = useRef(null), dragFrom = useRef(null);
+  // Arrastrar con el mouse para seleccionar un rango de celdas.
+  useEffect(() => { const up = () => { dragFrom.current = null; }; document.addEventListener('mouseup', up); return () => document.removeEventListener('mouseup', up); }, []);
   const W = c => (prefs.widths || {})[c] || DEFAULT_W(st, c, tc);
   const titleFirst = cols[0] === tc;
   // Mantener la celda activa dentro de los límites cuando cambian filas/columnas.
@@ -68,9 +70,19 @@ export function TableView({ st, rows, cols, open, onCol, onAddCol, onNew, dups, 
   // Selección de filas desde el número
   const clickNum = (e, i) => { const id = rows[i].id; const n = new Set(e.ctrlKey || e.metaKey ? sel : []); if (e.shiftKey && lastRow.current != null) { const [a, b] = [lastRow.current, i].sort((x, y) => x - y); for (let k = a; k <= b; k++) n.add(rows[k].id); } else if ((e.ctrlKey || e.metaKey) && sel.has(id)) n.delete(id); else n.add(id); lastRow.current = i; setSel(n); };
   const allSel = rows.length > 0 && rows.every(r => sel.has(r.id));
+  const tsv = () => { const lines = []; for (let r = rg.r0; r <= rg.r1; r++) { const cells = []; for (let c = rg.c0; c <= rg.c1; c++) cells.push(cellText(st, rows[r], cols[c]).replace(/[\t\n]/g, ' ')); lines.push(cells.join('\t')); } return lines.join('\n'); };
+  // Clic derecho: si cae dentro de un rango de varias celdas (o de varias filas marcadas) el menú actúa sobre todas.
+  const ctxMenu = (e, r, i) => {
+    const td = e.target.closest('td[data-rc]'), j = td ? +td.dataset.rc.split(':')[1] : -1, col = td && td.dataset.col;
+    const multiCells = rg && (rg.r0 !== rg.r1 || rg.c0 !== rg.c1) && j >= 0 && inRange(i, j);
+    if (multiCells) { const cells = (rg.r1 - rg.r0 + 1) * (rg.c1 - rg.c0 + 1); onMenu(e, { multi: true, rows: rows.slice(rg.r0, rg.r1 + 1), cols: cols.slice(rg.c0, rg.c1 + 1), cells, copy: () => copyText(tsv(), st, tr('Copiado: {n} celdas', { n: cells })), clear: () => st.setMany(edits((row, c) => st.type(c) === 'auto' ? undefined : st.type(c) === 'checkbox' ? false : '')) }); return; }
+    if (sel.size > 1 && sel.has(r.id)) { onMenu(e, { multi: true, rows: rows.filter(x => sel.has(x.id)), cols, fromSel: true }); return; }
+    if (j >= 0) { setAnchor(null); setAct({ r: i, c: j }); }
+    onMenu(e, { row: r, col, table: true });
+  };
   const left = c => c === tc && titleFirst ? '44px' : undefined;
   return <div class="tablewrap"><div class="gridbox" ref={box} tabIndex={0} onKeyDown={onKey} onCopy={onCopy} onPaste={onPaste}>
-    <table class="grid fixed" style={{ width: (44 + cols.reduce((a, c) => a + W(c), 0) + (st.can('manageColumns') ? 44 : 0)) + 'px' }}>
+    <table class={'grid fixed' + (prefs.rowH === 'compact' ? ' compact' : '')} style={{ width: (44 + cols.reduce((a, c) => a + W(c), 0) + (st.can('manageColumns') ? 44 : 0)) + 'px' }}>
       <colgroup><col style={{ width: '44px' }} />{cols.map(c => <col style={{ width: W(c) + 'px' }} />)}{st.can('manageColumns') && <col style={{ width: '44px' }} />}</colgroup>
       <thead><tr><th class="num sticky"><input type="checkbox" title={tr("Seleccionar todas")} checked={allSel} onChange={() => setSel(allSel ? new Set() : new Set(rows.map(r => r.id)))} /></th>
         {cols.map(c => <th draggable onDragStart={e => { setDragCol(c); e.dataTransfer.setData('text/kuadro-col', c); e.dataTransfer.effectAllowed = 'move'; }} onDragEnd={() => { setDragCol(null); setOverCol(null); }}
@@ -78,11 +90,12 @@ export function TableView({ st, rows, cols, open, onCol, onAddCol, onNew, dups, 
           onContextMenu={e => onMenu(e, { col: c })} class={(c === tc ? 'title ' : '') + (c === tc && titleFirst ? 'sticky ' : '') + (canCol ? 'click ' : '') + (overCol === c ? 'colover' : '')} style={{ left: left(c) }} onClick={() => canCol && onCol(c)} title={canCol ? tr('Clic: editar · arrastra para mover · clic derecho: más opciones') : ''}>
           <span class="th-in"><span class="tyi">{ICON[st.type(c)]}</span>{c}</span><span class="rz" onMouseDown={e => startResize(e, c)} onClick={e => e.stopPropagation()} onDblClick={e => { e.stopPropagation(); const w = { ...(prefs.widths || {}) }; delete w[c]; setPrefs({ widths: w }); }} /></th>)}
         {st.can('manageColumns') && <th class="add click" onClick={onAddCol} title={tr("Agregar columna")}>+</th>}</tr></thead>
-      <tbody>{rows.map((r, i) => <tr key={r.id} class={(r.tmp ? 'tmp ' : '') + (sel.has(r.id) ? 'selrow' : '')} onContextMenu={e => { const td = e.target.closest('td[data-col]'); onMenu(e, { row: r, col: td && td.dataset.col, list: rows }); }}>
+      <tbody>{rows.map((r, i) => <tr key={r.id} class={(r.tmp ? 'tmp ' : '') + (sel.has(r.id) ? 'selrow ' : '') + (hiddenRows && hiddenRows.has(r.id) ? 'hidrow' : '')} onContextMenu={e => ctxMenu(e, r, i)}>
         <td class={'num sticky' + (st.can('moveTabs') && !r.tmp ? ' grab' : '')} draggable={st.can('moveTabs') && !r.tmp} onClick={e => clickNum(e, i)} title="Clic: seleccionar · Ctrl/Shift: varias · arrastra a una pestaña para moverla" onDragStart={e => { e.dataTransfer.setData('text/plain', r.tab + '|' + r.id); e.dataTransfer.effectAllowed = 'move'; }}>
           {sel.has(r.id) ? <input type="checkbox" checked readOnly /> : <><span class="n">{i + 1}</span><span class="h">⠿</span></>}</td>
         {cols.map((c, j) => c in r.v ? <td data-col={c} data-rc={i + ':' + j} style={{ left: left(c) }} class={(c === tc ? 'title ' : '') + (c === tc && titleFirst ? 'sticky ' : '') + (act && act.r === i && act.c === j ? 'act ' : '') + (inRange(i, j) && rg && (rg.r0 !== rg.r1 || rg.c0 !== rg.c1) ? 'inrg' : '')}
-          onMouseDown={e => { if (e.button !== 0 || e.target.closest('.pop, textarea, input, a, button')) return; if (e.shiftKey && act) { e.preventDefault(); if (!anchor) setAnchor(act); setAct({ r: i, c: j }); } else if (!(act && act.r === i && act.c === j)) { setAnchor(null); setAct({ r: i, c: j }); guard.current = i + ':' + j; setTimeout(() => { if (guard.current === i + ':' + j) guard.current = null; }, 400); } focusBox(); }}
+          onMouseDown={e => { if (e.button !== 0 || e.target.closest('.pop, textarea, input, a, button')) return; if (e.shiftKey && act) { e.preventDefault(); if (!anchor) setAnchor(act); setAct({ r: i, c: j }); } else if (!(act && act.r === i && act.c === j)) { setAnchor(null); setAct({ r: i, c: j }); guard.current = i + ':' + j; setTimeout(() => { if (guard.current === i + ':' + j) guard.current = null; }, 400); } if (!e.shiftKey) dragFrom.current = { r: i, c: j }; focusBox(); }}
+          onMouseEnter={e => { const d = dragFrom.current; if (!d || !(e.buttons & 1) || (d.r === i && d.c === j && !anchor)) return; guard.current = null; setAnchor(d); setAct({ r: i, c: j }); }}
           onDblClick={e => { if (e.target.closest('.pop, textarea, input')) return; setAct({ r: i, c: j }); setSignal({ n: signal.n + 1, text: null, key: act.r + ':' + act.c }); }}>
           {c === tc && st.can('openPages') && <button class="openbtn" onClick={() => open(r)}>{tr("Abrir")}</button>}{c === tc && icons && icons[r.id] && <span class="ticon">{icons[r.id]}</span>}
           <Field st={st} row={r} col={c} table guard={() => { if (guard.current === i + ':' + j) { guard.current = null; return true; } return false; }} active={!!act && act.r === i && act.c === j} signal={signal.key === i + ':' + j ? signal : null} onConsumed={() => setSignal(x => ({ ...x, key: null }))} onDone={onDone} />

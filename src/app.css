@@ -269,3 +269,12 @@ body.light .sidebar{background:var(--side)}body.light .nav .badge{color:#fff}
 .ys-sub{background:#fff;color:#0f0f0f;border-radius:16px;padding:4px 10px;font-size:12px;font-weight:600;text-shadow:none;flex:none}
 .ys-title{font-size:14px;line-height:19px;margin-top:8px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .yp-toggle{display:flex;align-items:center;gap:6px;cursor:pointer;user-select:none}.yp-chev{color:var(--mut,#9b9b9b);width:12px;font-size:12px}.ytprev.closed .yp-h{margin-bottom:0}.yp-toggle:hover .sec0{color:var(--tx,#fff)}
+.grid td{user-select:none;-webkit-user-select:none}.grid td input,.grid td textarea{user-select:text;-webkit-user-select:text}
+.grid.compact td{height:34px;padding-top:2px;padding-bottom:2px}.grid.compact td .cellbtn{flex-wrap:nowrap;overflow:hidden;white-space:nowrap;max-height:26px}
+.grid.compact td .cellbtn.txt{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.grid tr.hidrow td{opacity:.45}
+.hidbar{display:flex;align-items:center;gap:8px;padding:6px 16px;font-size:13px;color:var(--mut);border-bottom:1px solid var(--line)}
+.grid.compact td .urls{flex-direction:row;align-items:center;gap:6px;overflow:hidden;white-space:nowrap}.grid.compact td .urls a{flex:0 1 auto;min-width:0}
+.grid.compact td.title{white-space:nowrap}.grid.compact td.title .cellbtn.txt{display:inline-block;max-width:calc(100% - 4px);vertical-align:middle}
+.grid.compact td.title .dup{position:absolute;right:6px;top:50%;transform:translateY(-50%)}.grid.compact tr:hover td.title .dup{display:none}
+.grid.compact td img{max-height:26px}

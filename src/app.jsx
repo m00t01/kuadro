@@ -261,6 +261,10 @@ function Workspace({ st, name, onHome }) {
   const ordered = [s.titleCol, ...baseCols.filter(c => c !== s.titleCol)].filter(c => baseCols.includes(c));
   const po = (prefs.order || []).filter(c => ordered.includes(c)); const tableCols = [...po, ...ordered.filter(c => !po.includes(c))].filter(c => !(prefs.hidden || []).includes(c));
   let rows = st.allRows(cur === '*' ? null : cur).filter(r => (!search || Object.values(r.v).some(x => String(x).toLowerCase().includes(search.toLowerCase())) || norm((S.pages[r.id] || {}).md || '').includes(norm(search))) && (!mine || (people.some(c => r.v[c] === name_) && !DONE.test(r.v[s.groupCol] || ''))) && filters.every(f => match(r, f)));
+  const hiddenRows = new Set(prefs.hiddenRows || []), hiddenHere = hiddenRows.size ? rows.filter(r => hiddenRows.has(r.id)).length : 0;
+  if (hiddenHere && !prefs.showHidden) rows = rows.filter(r => !hiddenRows.has(r.id));
+  const hideRows = ids => { setPrefs({ hiddenRows: [...new Set([...(prefs.hiddenRows || []), ...ids])] }); setSel(new Set()); st.toast(ids.length === 1 ? tr('Fila oculta en tu vista. Puedes mostrarla desde la barra de arriba.') : tr('{n} filas ocultas en tu vista. Puedes mostrarlas desde la barra de arriba.', { n: ids.length })); };
+  const unhideRows = ids => setPrefs({ hiddenRows: (prefs.hiddenRows || []).filter(x => !ids.includes(x)) });
   if (sort.col) rows = [...rows].sort((a, b) => sort.dir * String(a.v[sort.col] ?? '').localeCompare(String(b.v[sort.col] ?? ''), tr('es'), { numeric: true }));
   const dups = st.duplicates(); let openRow = null; if (openId) openRow = S.tabs[openId.tab]?.rows.find(r => r.id === openId.id) || null;
   const icons = Object.fromEntries(Object.entries(S.pageMeta).filter(([, m]) => m.icon).map(([k, m]) => [k, m.icon]));
@@ -274,7 +278,7 @@ function Workspace({ st, name, onHome }) {
   const items = inboxItems(st), unread = items.filter(i => Date.parse(i.at) > seen).length;
   const markSeen = () => { const t = Date.now(); setSeen(t); LS.set('seen:' + pk, t); };
   const sel_ = (col, row) => optionsOf(st, col).map(o => ({ label: o.v, check: String(row.v[col] || '') === o.v, onClick: () => st.setCell(row.tab, row.id, col, o.v, { move: col === s.groupCol }) }));
-  const rowMenu = ({ row: r, col, list }) => {
+  const rowMenu = ({ row: r, col, list, table: ctxTable }) => {
     const T = S.tabs[r.tab], title = r.v[s.titleCol] || '', ok = !r.tmp, pcols = T.header.filter(h => st.type(h) === 'person' && !st.hiddenCols().includes(h));
     const sameTab = (list || T.rows).filter(x => x.tab === r.tab && x.id !== r.id), link = Object.keys(r.v).filter(c => st.type(c) === 'url').flatMap(c => urls(r.v[c]))[0];
     const others = tabs.filter(t => t !== r.tab && S.tabs[t].idCol >= 0), ct = col && st.type(col);
@@ -284,8 +288,11 @@ function Workspace({ st, name, onHome }) {
       ok && s.groupCol && T.header.includes(s.groupCol) && (st.canEditCol(s.groupCol) || st.can('moveCards')) && { label: tr('Cambiar ') + s.groupCol.toLowerCase(), sub: sel_(s.groupCol, r) },
       ...pcols.filter(c => ok && st.canEditCol(c)).map(c => ({ label: tr('Asignar ') + c.toLowerCase(), sub: [...optionsOf(st, c).map(o => ({ label: o.v, check: r.v[c] === o.v, onClick: () => st.setCell(r.tab, r.id, c, o.v) })), ...(r.v[c] ? [{ label: tr('Quitar asignación'), onClick: () => st.setCell(r.tab, r.id, c, '') }] : [])] })),
       ok && st.can('moveTabs') && others.length && { label: tr('Mover a pestaña'), sub: others.map(t => ({ label: t, onClick: () => st.moveRow(r.tab, r.id, t) })) },
-      ok && st.can('moveCards') && !sort.col && sameTab.length && { label: list ? tr('Subir al inicio de la columna') : tr('Subir al inicio'), onClick: () => st.reorder(r.tab, r.id, sameTab[0].id, false) },
-      ok && st.can('moveCards') && !sort.col && sameTab.length && { label: list ? tr('Bajar al final de la columna') : tr('Bajar al final'), onClick: () => st.reorder(r.tab, r.id, sameTab[sameTab.length - 1].id, true) },
+      ok && st.can('moveCards') && !sort.col && sameTab.length && { label: list && !ctxTable ? tr('Subir al inicio de la columna') : tr('Subir al inicio'), onClick: () => st.reorder(r.tab, r.id, sameTab[0].id, false) },
+      ok && st.can('moveCards') && !sort.col && sameTab.length && { label: list && !ctxTable ? tr('Bajar al final de la columna') : tr('Bajar al final'), onClick: () => st.reorder(r.tab, r.id, sameTab[sameTab.length - 1].id, true) },
+      'sep',
+      hiddenRows.has(r.id) ? { label: tr('Volver a mostrar esta fila'), onClick: () => unhideRows([r.id]) } : { label: tr('Ocultar fila'), hint: tr('solo en tu vista'), onClick: () => hideRows([r.id]) },
+      view === 'table' && { label: tr('Alto de filas'), sub: rowHItems() },
       'sep',
       ok && st.can('addRows') && { label: tr('Duplicar'), onClick: () => { const v = {}; T.header.forEach(h => { if (h && h !== 'ID' && st.type(h) !== 'auto' && r.v[h] !== '' && r.v[h] !== false) v[h] = r.v[h]; }); v[s.titleCol] = title + tr(' (copia)'); st.addRow(r.tab, v, { page: (S.pages[r.id] || {}).md || '' }); } },
       { label: tr('Copiar título'), onClick: () => copyText(title, st) },
@@ -303,6 +310,7 @@ function Workspace({ st, name, onHome }) {
     sort.col && { label: tr('Quitar orden'), onClick: () => setSort({ col: '', dir: 1 }) },
     { label: tr('Filtrar por esta columna'), onClick: () => { setFilters([...filters, { col, op: optionsOf(st, col).length ? 'is' : 'has', val: '' }]); setFpop(true); } },
     col !== s.titleCol && { label: tr('Ocultar en esta vista'), onClick: () => setPrefs({ hidden: [...(prefs.hidden || []), col] }) },
+    { label: tr('Alto de filas'), sub: rowHItems() },
     (prefs.widths || {})[col] && { label: tr('Restablecer ancho'), onClick: () => { const w = { ...prefs.widths }; delete w[col]; setPrefs({ widths: w }); } },
     'sep',
     st.can('manageColumns') && { label: tr('Insertar columna'), onClick: () => setAddCol({ name: '', type: 'text', all: true }) },
@@ -318,7 +326,30 @@ function Workspace({ st, name, onHome }) {
       st.can('manageOptions') && 'sep', st.can('manageOptions') && { label: tr('Aplicar el color de su etiqueta a todas las columnas'), onClick: () => { optionsOf(st, s.groupCol).forEach(o => { o.colBg = 'auto'; }); st.saveConfig(); } },
       st.can('manageOptions') && { label: tr('Quitar color a todas las columnas'), onClick: () => { optionsOf(st, s.groupCol).forEach(o => { o.colBg = ''; }); st.saveConfig(); } },
     ] }); };
-  const onMenu = (e, ctx) => { e.preventDefault(); e.stopPropagation(); const m = ctx.row ? rowMenu(ctx) : colMenu(ctx); setMenu({ x: e.clientX, y: e.clientY, ...m }); };
+  const rowHItems = () => [{ label: tr('Ajustar al contenido'), check: prefs.rowH !== 'compact', onClick: () => setPrefs({ rowH: '' }) }, { label: tr('Una sola línea (compacto)'), check: prefs.rowH === 'compact', onClick: () => setPrefs({ rowH: 'compact' }) }];
+  const setAllOf = list => (col, val) => { st.setMany(list.filter(r => !r.tmp && S.tabs[r.tab].header.includes(col)).map(r => ({ tab: r.tab, id: r.id, col, val })), { move: col === s.groupCol }); };
+  const valuesOf = (col, setAll) => { const ty = st.type(col); if (ty === 'checkbox') return [{ label: tr('Marcar'), onClick: () => setAll(col, true) }, { label: tr('Desmarcar'), onClick: () => setAll(col, false) }]; return [...optionsOf(st, col).map(o => ({ label: o.v, onClick: () => setAll(col, o.v) })), { label: tr('Vaciar'), onClick: () => setAll(col, '') }]; };
+  // Menú para varias celdas o filas seleccionadas.
+  const multiMenu = ({ rows: rs, cols: cs, cells, copy, clear, fromSel }) => {
+    const list = rs.filter(r => !r.tmp), n = list.length, setAll = setAllOf(list), ids = list.map(r => r.id);
+    const optCols = cs.filter(c => ['select', 'multi', 'person', 'checkbox'].includes(st.type(c)) && st.canEditCol(c));
+    const anyHidden = ids.some(id => hiddenRows.has(id));
+    return { title: cells ? tr('{c} celdas · {n} filas', { c: cells, n }) : tr('{n} filas seleccionadas', { n }), items: [
+      copy && { label: tr('Copiar celdas'), hint: 'Ctrl+C', onClick: copy },
+      clear && { label: tr('Vaciar celdas'), hint: tr('Supr'), onClick: clear },
+      'sep',
+      ...optCols.map(c => ({ label: tr('Cambiar «{c}» en todas', { c }), sub: valuesOf(c, setAll) })),
+      st.can('moveTabs') && { label: tr('Mover a pestaña'), sub: tabs.filter(t => S.tabs[t].idCol >= 0).map(t => ({ label: t, onClick: () => { list.forEach(r => r.tab !== t && st.moveRow(r.tab, r.id, t)); setSel(new Set()); } })) },
+      'sep',
+      anyHidden ? { label: tr('Volver a mostrar estas filas'), onClick: () => unhideRows(ids) } : { label: n === 1 ? tr('Ocultar fila') : tr('Ocultar {n} filas', { n }), hint: tr('solo en tu vista'), onClick: () => hideRows(ids) },
+      !fromSel && n > 0 && { label: tr('Seleccionar estas filas'), onClick: () => setSel(new Set(ids)) },
+      st.can('addRows') && { label: n === 1 ? tr('Duplicar') : tr('Duplicar {n} filas', { n }), onClick: () => { list.forEach(r => { const v = {}; Object.entries(r.v).forEach(([k, x]) => { if (st.type(k) !== 'auto' && x !== '' && x !== false) v[k] = x; }); v[s.titleCol] = (r.v[s.titleCol] || '') + tr(' (copia)'); st.addRow(r.tab, v, { page: (S.pages[r.id] || {}).md || '' }); }); setSel(new Set()); } },
+      view === 'table' && { label: tr('Alto de filas'), sub: rowHItems() },
+      'sep',
+      st.can('deleteRows') && { label: n === 1 ? tr('Eliminar') : tr('Eliminar {n} filas', { n }), danger: true, onClick: () => { if (confirm(tr(n === 1 ? '¿Eliminar 1 elemento del Sheet?' : '¿Eliminar {n} elementos del Sheet?', { n }))) { list.forEach(r => st.deleteRow(r.tab, r.id)); setSel(new Set()); } } },
+    ] };
+  };
+  const onMenu = (e, ctx) => { e.preventDefault(); e.stopPropagation(); const m = ctx.multi ? multiMenu(ctx) : ctx.row ? rowMenu(ctx) : colMenu(ctx); setMenu({ x: e.clientX, y: e.clientY, ...m }); };
   // Edición masiva desde la barra de selección
   const bulkMenu = (e, kind, list) => {
     const b = e.currentTarget.getBoundingClientRect(), at = { x: b.left, y: b.top - 8 };
@@ -367,6 +398,7 @@ function Workspace({ st, name, onHome }) {
         <button class="btn" onClick={() => setFilters([...filters, { col: s.groupCol || baseCols[0], op: 'is', val: '' }])}>{tr("+ Agregar filtro")}</button></div></Pop>}
       {colsPop && view === 'table' && <Pop anchor={cref.current} onClose={() => setColsPop(false)} width={300}><div class="ctx-t">{tr("Columnas visibles en esta vista")}</div>
         {ordered.map(c => <label class="pop-i chkrow"><input type="checkbox" disabled={c === s.titleCol} checked={!(prefs.hidden || []).includes(c)} onChange={e => setPrefs({ hidden: e.target.checked ? (prefs.hidden || []).filter(x => x !== c) : [...(prefs.hidden || []), c] })} /><span class="tyi">{ICON[st.type(c)]}</span>{c}</label>)}
+        <div class="ctx-t">{tr("Alto de filas")}</div><div class="pad"><div class="seg sm-seg"><button class={prefs.rowH !== 'compact' ? 'on' : ''} onClick={() => setPrefs({ rowH: '' })}>{tr("Ajustar al contenido")}</button><button class={prefs.rowH === 'compact' ? 'on' : ''} onClick={() => setPrefs({ rowH: 'compact' })}>{tr("Una sola línea")}</button></div></div>
         <div class="pop-i muted" onClick={() => setPrefs({ hidden: [], order: [], widths: {} })}>{tr("Restablecer columnas (orden, ancho y visibles)")}</div>
         <p class="hint pad">{tr("Arrastra los encabezados para reordenar y su borde derecho para cambiar el ancho.")}</p></Pop>}
       {colsPop && (view === 'kanban' || view === 'gallery') && <Pop anchor={cref.current} onClose={() => setColsPop(false)} width={300}><div class="ctx-t">{view === 'kanban' ? tr('Qué muestran las tarjetas') : tr('Qué muestran las fichas')}</div>
@@ -378,7 +410,10 @@ function Workspace({ st, name, onHome }) {
       {!S.prepared && <div class="banner">{tr("Este Sheet aún no está preparado para la app: falta la columna ID y las pestañas ocultas de configuración. Mientras tanto es de solo lectura.")}{' '}<button class="btn primary" onClick={() => st.prepare()}>{tr("Preparar este Sheet")}</button></div>}
       {S.authExpired && <div class="banner">{tr("Tu sesión de Google caducó; tus cambios no se guardarán hasta que vuelvas a entrar. ")}<button class="btn primary" onClick={() => st.ui.relogin()}>{tr("Volver a iniciar sesión")}</button></div>}
       {S.readOnly && <div class="banner">{tr("Tu cuenta de Google solo tiene permiso de lectura en este Sheet.")}</div>}
-      <div class="body">{view === 'table' && <TableView {...P} cols={tableCols} onCol={setColEdit} onAddCol={() => setAddCol({ name: '', type: 'text', all: true })} sel={sel} setSel={setSel} />}{view === 'kanban' && <KanbanView {...P} sorted={!!sort.col} onColMenu={kcolMenu} />}{view === 'gallery' && <GalleryView {...P} />}{view === 'calendar' && <CalendarView {...P} />}{view === 'dash' && <DashView {...P} />}</div>
+      {hiddenHere > 0 && <div class="hidbar">{prefs.showHidden ? tr('Mostrando {n} filas ocultas (en gris).', { n: hiddenHere }) : tr(hiddenHere === 1 ? '1 fila oculta en tu vista.' : '{n} filas ocultas en tu vista.', { n: hiddenHere })}
+        <button class="mini" onClick={() => setPrefs({ showHidden: !prefs.showHidden })}>{prefs.showHidden ? tr('Volver a ocultarlas') : tr('Ver')}</button>
+        <button class="mini" onClick={() => setPrefs({ hiddenRows: (prefs.hiddenRows || []).filter(id => !st.allRows(cur === '*' ? null : cur).some(r => r.id === id)), showHidden: false })}>{tr('Mostrar todas de nuevo')}</button></div>}
+      <div class="body">{view === 'table' && <TableView {...P} hiddenRows={prefs.showHidden ? hiddenRows : null} cols={tableCols} onCol={setColEdit} onAddCol={() => setAddCol({ name: '', type: 'text', all: true })} sel={sel} setSel={setSel} />}{view === 'kanban' && <KanbanView {...P} sorted={!!sort.col} onColMenu={kcolMenu} />}{view === 'gallery' && <GalleryView {...P} />}{view === 'calendar' && <CalendarView {...P} />}{view === 'dash' && <DashView {...P} />}</div>
       {view === 'table' && <BulkBar st={st} rows={rows} sel={sel} setSel={setSel} onMenuAt={bulkMenu} />}</main>
     {inbox && <Inbox st={st} items={items} seen={seen} open={open} onClose={() => { setInbox(false); markSeen(); }} onSeen={markSeen} />}
     {openRow && <RowPage key={openRow.id} st={st} row={openRow} dup={dups.has(openRow.id)} onClose={() => setOpenId(null)} onMoved={to => setOpenId({ tab: to, id: openRow.id })} />}

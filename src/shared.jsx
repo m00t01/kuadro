@@ -12,7 +12,7 @@ const AV = ['#e5484d', '#f76b15', '#ffc53d', '#30a46c', '#12a594', '#0090ff', '#
 export const avColor = name => AV[[...String(name || '?')].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7) % AV.length];
 export const initials = name => String(name || '?').trim().split(/\s+/).slice(0, 2).map(w => w[0]).join('').toUpperCase();
 export const Avatar = ({ name, size = 22, title }) => <span class="av" title={title || name} style={{ background: avColor(name), width: size + 'px', height: size + 'px', fontSize: Math.round(size * 0.42) + 'px' }}>{initials(name)}</span>;
-export const copyText = async (t, st) => { try { if (native) await native.copy(t); else await navigator.clipboard.writeText(t); st && st.toast(tr('Copiado')); } catch { st && st.toast(tr('No se pudo copiar'), 'error'); } };
+export const copyText = async (t, st, msg) => { try { if (native) await native.copy(t); else await navigator.clipboard.writeText(t); st && st.toast(msg || tr('Copiado')); } catch { st && st.toast(tr('No se pudo copiar'), 'error'); } };
 // Convierte texto pegado al tipo de la columna.
 const MES = { ene: 1, feb: 2, mar: 3, abr: 4, may: 5, jun: 6, jul: 7, ago: 8, sep: 9, sept: 9, oct: 10, nov: 11, dic: 12 };
 export function parseFor(type, txt) {
