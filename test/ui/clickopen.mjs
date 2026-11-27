@@ -16,6 +16,10 @@ ok('Open button vertically centered', await p.evaluate(() => { const td = docume
 // Single click opens.
 let pt = await titlePt(1); await p.mouse.click(pt.x, pt.y); await wait(500);
 ok('one click on the title opens the page', await p.evaluate(() => !!document.querySelector('.page .ptitle')));
+ok('and does not start editing the cell', await p.evaluate(() => !document.querySelector('.grid textarea.edit')));
+// Clicking a title that is already selected also only opens (no editing).
+await p.keyboard.press('Escape'); await wait(300); await p.mouse.click(pt.x, pt.y); await wait(500);
+ok('clicking an already selected title only opens', await p.evaluate(() => !!document.querySelector('.page') && !document.querySelector('.grid textarea.edit')));
 // Enter in the title goes to the notes editor.
 await p.click('.page .ptitle'); await p.keyboard.press('End'); await p.keyboard.press('Enter'); await wait(150);
 ok('Enter in the title jumps to Script & notes', await p.evaluate(() => document.activeElement.classList.contains('ProseMirror')));
