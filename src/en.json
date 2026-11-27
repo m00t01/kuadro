@@ -940,5 +940,6 @@
 "← Volver": "← Back",
 "Notificaciones": "Notifications",
 "Un clic en el título abre su página (doble clic para renombrarlo ahí mismo)": "One click on the title opens its page (double-click to rename it right there)",
-"Si lo desactivas, un clic solo selecciona la celda y la página se abre con el botón «Abrir» o con Ctrl+Enter.": "If you turn it off, a click only selects the cell and the page opens with the “Open” button or Ctrl+Enter."
+"Si lo desactivas, un clic solo selecciona la celda y la página se abre con el botón «Abrir» o con Ctrl+Enter.": "If you turn it off, a click only selects the cell and the page opens with the “Open” button or Ctrl+Enter.",
+"{n} opciones": "{n} options"
 }

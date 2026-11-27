@@ -26,7 +26,7 @@ function Card({ st, r, open, drag, ins, onOver, onDropCard, onMenu, props, icon,
   const S = st.S, s = S.config.settings, src = props.includes('__img') && s.imageCol && imgSrc(r.v[s.imageCol]);
   return <div class={'card' + (ins ? ' ins-' + ins : '') + (dragging && dragging.id === r.id ? ' dragging' : '')} draggable={drag} onDragStart={e => startDrag(e, r)} onDragEnd={() => { dragging = null; }}
     onDragOver={onOver && (e => onOver(e, r))} onDrop={onDropCard && (e => onDropCard(e, r))} onContextMenu={onMenu && (e => onMenu(e, r))} onClick={() => st.can('openPages') && open(r)}>
-    {src && <img src={src} loading="lazy" />}<div class="card-t">{icon && <span class="ticon">{icon}</span>}{r.v[s.titleCol] || <span class="ph">{tr("Sin título")}</span>}</div>{(() => { const pg = st.progressOf(r.id); return pg.total ? <span class={'prog sm' + (pg.done === pg.total ? ' full' : '')}><span class="pt"><i style={{ width: Math.round(100 * pg.done / pg.total) + '%' }} /></span><b>{pg.done}/{pg.total}</b></span> : null; })()}
+    {src && <img src={src} loading="lazy" onError={e => { e.currentTarget.style.display = 'none'; }} />}<div class="card-t">{icon && <span class="ticon">{icon}</span>}{r.v[s.titleCol] || <span class="ph">{tr("Sin título")}</span>}</div>{(() => { const pg = st.progressOf(r.id); return pg.total ? <span class={'prog sm' + (pg.done === pg.total ? ' full' : '')}><span class="pt"><i style={{ width: Math.round(100 * pg.done / pg.total) + '%' }} /></span><b>{pg.done}/{pg.total}</b></span> : null; })()}
     <PropLine st={st} r={r} props={props.filter(p => p !== '__img')} />
     {here && here.length > 0 && <div class="here">{here.map(p => <Avatar name={p.name} size={18} title={tr('{x} lo tiene abierto', { x: p.name })} />)}</div>}</div>;
 }
@@ -64,7 +64,7 @@ export function KanbanView({ st, rows, open, onNew, sorted, onMenu, onColMenu, p
     if (collapsed.includes(o)) return <div class={'kcol folded' + (over === key ? ' over' : '') + (bg ? ' kb-' + bg : '')} {...dropProps} onClick={() => toggleCol(o)} title={tr("Desplegar columna")}>
       <span class="fold-n">{list.length}</span><span class="fold-t">{o ? <Chip v={o} color={colorOf(st, g, o)} /> : tr('Sin {x}', { x: g.toLowerCase() })}</span></div>;
     return <div class={'kcol' + (over === key ? ' over' : '') + (bg ? ' kb-' + bg : '')} {...dropProps}>
-      <div class="kcol-h" onContextMenu={e => opt && onColMenu(e, opt, toggleCol)}>{o ? <Chip v={o} color={colorOf(st, g, o)} /> : <span class="muted">{tr('Sin {x}', { x: g.toLowerCase() })}</span>}<span class="sp" /><span class="muted">{list.length}</span>
+      <div class="kcol-h" onContextMenu={e => opt && onColMenu(e, opt, toggleCol)}>{o ? <Chip v={o} color={colorOf(st, g, o)} /> : <span class="muted">{tr('Sin {x}', { x: g.toLowerCase() })}</span>}<span class="muted kc-n">{list.length}</span><span class="sp" />
         <button class="icon kc-btn" title={tr("Plegar columna")} onClick={() => toggleCol(o)}>⟨</button>
         {opt && st.can('manageOptions') && <button class="icon kc-btn" title={tr("Color de la columna")} onClick={e => onColMenu(e, opt, toggleCol)}>⋯</button>}</div>
       <div class="kcol-b">{list.map(r => <Card key={r.id} st={st} r={r} open={open} drag={(move || st.can('moveTabs')) && !r.tmp} props={props} icon={icons[r.id]} here={presence.filter(p => p.rowId === r.id)}
@@ -85,7 +85,7 @@ export function GalleryView({ st, rows, open, onMenu, prefs, icons }) {
   return <div class={'gallery g-' + size}>{rows.map(r => {
     let src = s.imageCol && imgSrc(r.v[s.imageCol]), ref = false;
     if (!src) { const y = Object.keys(r.v).filter(c => st.type(c) === 'url').flatMap(c => urls(r.v[c])).map(ytId).find(Boolean); if (y) { src = `https://i.ytimg.com/vi/${y}/mqdefault.jpg`; ref = true; } }
-    return <div class="gcard" key={r.id} onContextMenu={e => onMenu(e, { row: r })} draggable={st.can('moveTabs') && !r.tmp} onDragStart={e => startDrag(e, r)} onClick={() => st.can('openPages') && open(r)}><div class="gimg">{src ? <img src={src} loading="lazy" /> : <span>{tr("Sin imagen")}</span>}{ref && <em>{tr("Referencia")}</em>}</div>
+    return <div class="gcard" key={r.id} onContextMenu={e => onMenu(e, { row: r })} draggable={st.can('moveTabs') && !r.tmp} onDragStart={e => startDrag(e, r)} onClick={() => st.can('openPages') && open(r)}><div class="gimg">{src ? <img src={src} loading="lazy" onError={e => { e.currentTarget.style.display = 'none'; e.currentTarget.parentNode.classList.add('noimg'); }} /> : null}<span class="gph">{tr("Sin imagen")}</span>{ref && <em>{tr("Referencia")}</em>}</div>
       <div class="card-t">{icons[r.id] && <span class="ticon">{icons[r.id]}</span>}{r.v[s.titleCol] || <span class="ph">{tr("Sin título")}</span>}</div>{(() => { const pg = st.progressOf(r.id); return pg.total ? <span class={'prog sm' + (pg.done === pg.total ? ' full' : '')}><span class="pt"><i style={{ width: Math.round(100 * pg.done / pg.total) + '%' }} /></span><b>{pg.done}/{pg.total}</b></span> : null; })()}{(d => d ? <span class={'duebadge ' + (d.late ? 'late' : 'soon')}>{d.late ? tr('Atrasado {n} d', { n: d.n }) : d.n === 0 ? tr('Hoy') : d.n === 1 ? tr('Mañana') : tr('En {n} días', { n: d.n })}</span> : null)(dueOf(st, r))}<PropLine st={st} r={r} props={props} /></div>;
   })}{!rows.length && <div class="empty">{tr("No hay elementos.")}</div>}</div>;
 }

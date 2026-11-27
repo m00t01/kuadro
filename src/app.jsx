@@ -4,7 +4,7 @@ import { createStore, TYPES, PERMS } from './store.js';
 import { MockSheets } from './mock.js';
 import { GoogleSheets } from './gapi.js';
 import { af, useStore, Chip, Pop, Modal, Field, ColumnEditor, RichEditor, splitMulti, optionsOf, colorOf } from './ui.jsx';
-import { urls, ytId, imgSrc, fmtDate, norm, newId, isISO } from './util.js';
+import { urls, ytId, imgSrc, fmtDate, fmtMonth, norm, newId, isISO } from './util.js';
 import { clickOpensPage, setClickOpensPage, alertPrefs, setAlertPrefs, native, LS, ICON, DONE, iso, Avatar, copyText } from './shared.jsx';
 import { TableView, BulkBar } from './table.jsx';
 import { KanbanView, GalleryView, CalendarView, defaultCardProps } from './views.jsx';
@@ -298,7 +298,7 @@ function DashView({ st, rows, dups, open }) {
     <div class="panels">{s.groupCol && <Bars title={tr('Por ') + s.groupCol.toLowerCase()} data={g} />}
       <Bars title={tr("Por pestaña")} data={count(r => [r.tab])} color="purple" />
       {people.map(c => <Bars title={tr('Por ') + c.toLowerCase()} data={count(r => r.v[c] ? [r.v[c]] : [tr('Sin asignar')])} color="green" />)}
-      {s.dateCol && <Bars title={tr('Por mes · ') + s.dateCol} data={months.map(([k, n]) => [fmtDate(k + '-01').slice(2), n])} color="orange" />}
+      {s.dateCol && <Bars title={tr('Por mes · ') + s.dateCol} data={months.map(([k, n]) => [fmtMonth(k), n])} color="orange" />}
       <div class="panel"><h4>{tr("Títulos duplicados")}</h4>{dupRows.map(r => <div class="link" onClick={() => open(r)}>{r.v[s.titleCol]} <span class="muted">· {r.tab}</span></div>)}{!dupRows.length && <p class="muted">{tr("Ninguno.")}</p>}</div></div></div>;
 }
 function Skeleton() { return <div class="app"><aside class="sidebar sk">{[70, 50, 60, 55, 65, 45].map(w => <div class="skl" style={{ width: w + '%' }} />)}</aside><main><div class="topbar"><div class="skl" style={{ width: '320px', height: '30px' }} /></div><div class="body pad">{Array.from({ length: 12 }, (_, i) => <div class="skrow"><div class="skl" style={{ width: (30 + (i * 37) % 50) + '%' }} /><div class="skl" style={{ width: '12%' }} /><div class="skl" style={{ width: '10%' }} /></div>)}<p class="muted center-t">{tr("Cargando el Sheet…")}</p></div></main></div>; }
@@ -345,7 +345,7 @@ function Settings({ st, onClose, onCol, onAddCol, start }) {
     {sec === 'chk' && <ChecklistSettings st={st} />}
     {sec === 'notif' && <DateAlerts />}
     {sec === 'cols' && colOpen && <ColumnEditor st={st} col={colOpen} inline onClose={() => setColOpen(null)} />}
-    {sec === 'cols' && !colOpen && <div>{names.map(n => <div class="lrow click" onClick={() => setColOpen(n)}><span class="tyi">{ICON[st.type(n)]}</span><b>{n}</b><span class="muted">{TYPES[st.type(n)]}{(c.schema[n]?.options || []).length ? ` · ${c.schema[n].options.length} opciones` : ''}</span></div>)}
+    {sec === 'cols' && !colOpen && <div>{names.map(n => <div class="lrow click" onClick={() => setColOpen(n)}><span class="tyi">{ICON[st.type(n)]}</span><b>{n}</b><span class="muted">{TYPES[st.type(n)]}{(c.schema[n]?.options || []).length ? ' · ' + tr('{n} opciones').replace('{n}', c.schema[n].options.length) : ''}</span></div>)}
       {st.can('manageColumns') && <button class="btn" onClick={onAddCol}>{tr("+ Agregar columna")}</button>}</div>}
     {sec === 'roles' && <div class="two"><div class="side">{c.roles.map(r => <button class={r.id === rid ? 'on' : ''} onClick={() => setRid(r.id)}>{r.name}</button>)}
       <button onClick={() => { const r = { id: newId(), name: tr('Nuevo rol'), perms: { openPages: true } }; c.roles.push(r); setRid(r.id); save(); }}>{tr("+ Nuevo rol")}</button></div>
@@ -690,7 +690,7 @@ function Workspace({ st, name, onHome }) {
       {tplAsk && <Modal title={tr("Nuevo elemento")} onClose={() => setTplAsk(null)}><div class="lrow click" onClick={() => { create(tplAsk.values, tplAsk.card); setTplAsk(null); }}><b>{tr("En blanco")}</b></div>{S.config.templates.map(t => <div class="lrow click" onClick={() => { create(tplAsk.values, tplAsk.card, t); setTplAsk(null); }}><b>{t.name}</b><span class="muted">{tr("Plantilla")}</span></div>)}</Modal>}
     {pal && <div class="overlay top" onMouseDown={e => { if (e.target === e.currentTarget) setPal(false); }}><div class="palette"><input ref={af} placeholder={tr("Busca un video o escribe una acción (nueva fila, carpeta, agrupar…)")} value={pq} onInput={e => { setPq(e.target.value); setPhi(0); }}
       onKeyDown={e => { if (e.key === 'Escape') setPal(false); if (e.key === 'ArrowDown') { e.preventDefault(); setPhi(Math.min(phi + 1, pAll.length - 1)); } if (e.key === 'ArrowUp') { e.preventDefault(); setPhi(Math.max(phi - 1, 0)); } if (e.key === 'Enter' && pAll[phi]) runP(pAll[phi]); }} />
-      {pAll.map((x, i) => x.cmd ? <div class={'pop-i pal-i pal-cmd' + (i === phi ? ' hi' : '')} onMouseEnter={() => setPhi(i)} onClick={() => runP(x)}><span class="pal-ic">⌘</span><div class="grow">{x.cmd.label}</div>{x.cmd.hint && <span class="muted sm">{x.cmd.hint}</span>}</div> : <div class={'pop-i pal-i' + (i === phi ? ' hi' : '')} onMouseEnter={() => setPhi(i)} onClick={() => runP(x)}><div class="grow"><div>{icons[x.row.id] && <span class="ticon">{icons[x.row.id]}</span>}{x.row.v[s.titleCol] || tr('Sin título')}</div>{x.snippet && <div class="muted sm">…{x.snippet}…</div>}</div><span class="muted sm">{x.row.tab}{s.groupCol && x.row.v[s.groupCol] ? ' · ' + x.row.v[s.groupCol] : ''}</span></div>)}
+      {pAll.map((x, i) => x.cmd ? <div class={'pop-i pal-i pal-cmd' + (i === phi ? ' hi' : '')} onMouseEnter={() => setPhi(i)} onClick={() => runP(x)}><span class="pal-ic">›</span><div class="grow">{x.cmd.label}</div>{x.cmd.hint && <span class="muted sm">{x.cmd.hint}</span>}</div> : <div class={'pop-i pal-i' + (i === phi ? ' hi' : '')} onMouseEnter={() => setPhi(i)} onClick={() => runP(x)}><div class="grow"><div>{icons[x.row.id] && <span class="ticon">{icons[x.row.id]}</span>}{x.row.v[s.titleCol] || tr('Sin título')}</div>{x.snippet && <div class="muted sm">…{x.snippet}…</div>}</div><span class="muted sm">{x.row.tab}{s.groupCol && x.row.v[s.groupCol] ? ' · ' + x.row.v[s.groupCol] : ''}</span></div>)}
       {pq.trim() && !pAll.length && <div class="pop-empty">{tr("Sin resultados.")}</div>}</div></div>}
     {S.conflicts[0] && <Modal title={tr("Cambio en conflicto")} onClose={() => st.resolveConflict(S.conflicts[0], false)}><p>{tr('Alguien cambió «{c}» de «{x}» en el Sheet mientras lo editabas.', { c: S.conflicts[0].col, x: S.conflicts[0].title })}</p>
       <p>{tr("En el Sheet:")}{' '}<b>{String(S.conflicts[0].theirs) || tr('(vacío)')}</b><br />{tr("Tu cambio:")}{' '}<b>{String(S.conflicts[0].mine) || tr('(vacío)')}</b></p>

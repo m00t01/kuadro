@@ -856,7 +856,7 @@ export function createStore(api, me, opts = {}) {
   // Cada automatización corre una sola vez por fila y por fecha, y no recupera fechas de hace más de 3 días.
   let fired = null;
   function runDateAutomations() {
-    const list = (S.config.automations || []).filter(a => a.enabled !== false && a.when && a.when.type === 'date' && a.when.col); if (!list.length || !S.prepared) return 0;
+    const list = (S.config.automations || []).filter(a => a.enabled !== false && a.when && a.when.type === 'date' && a.when.col); if (!list.length || !S.prepared || S.readOnly || !can('editCells')) return 0;
     fired = fired || JSON.parse(JSON.stringify(S.config.autoFired || {})); const today = todayISO(); let n = 0;
     for (const a of list) {
       const off = (a.when.dir === 'before' ? -1 : a.when.dir === 'after' ? 1 : 0) * (+a.when.n || 0), mine = fired[a.id] || (fired[a.id] = {});
