@@ -5,7 +5,7 @@ const p = await b.newPage(); await p.setViewport({ width: 1300, height: 900 });
 const errs = []; p.on('pageerror', e => errs.push(e.message)); p.on('dialog', d => d.accept());
 const wait = ms => new Promise(r => setTimeout(r, ms)), out = [], ok = (n, v) => out.push((v ? 'ok   ' : 'FAIL ') + n);
 const click = (sel, text) => p.evaluate((s, t) => { const e = [...document.querySelectorAll(s)].find(x => x.textContent.trim().startsWith(t)); if (!e) throw new Error('no ' + t); e.click(); }, sel, text);
-await p.goto('file:///home/claude/kuadro/dist/index.html'); await p.evaluate(() => localStorage.clear()); await p.reload(); await wait(400);
+await p.goto('file:///home/claude/kuadro/dist/index.html'); await p.evaluate(() => { localStorage.clear(); localStorage.setItem('kuadro-clickopen', '0'); }); await p.reload(); await wait(400);
 await click('button', 'Open demo'); await wait(1800);
 // Make row 1 late (2 days ago, Pending), row 2 due tomorrow (Pending), rows 3-4 published this week.
 await p.evaluate(() => { const d = JSON.parse(localStorage.getItem('demo-data-en')); const s = d.sheets.find(x => x.title === 'Main channel'), h = s.rows[0], di = h.indexOf('Publish date'), si = h.indexOf('Status');

@@ -938,5 +938,7 @@
 "Buscar… (Ctrl+F)": "Search… (Ctrl+F)",
 "Busca en títulos, celdas y guiones de esta vista. Esc para limpiar.": "Searches titles, cells and scripts in this view. Esc to clear.",
 "← Volver": "← Back",
-"Notificaciones": "Notifications"
+"Notificaciones": "Notifications",
+"Un clic en el título abre su página (doble clic para renombrarlo ahí mismo)": "One click on the title opens its page (double-click to rename it right there)",
+"Si lo desactivas, un clic solo selecciona la celda y la página se abre con el botón «Abrir» o con Ctrl+Enter.": "If you turn it off, a click only selects the cell and the page opens with the “Open” button or Ctrl+Enter."
 }

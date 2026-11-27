@@ -2,7 +2,7 @@ import puppeteer from 'puppeteer-core';
 const b = await puppeteer.launch({ executablePath: '/usr/bin/google-chrome', headless: 'new', args: ['--no-sandbox', '--allow-file-access-from-files'] });
 const p = await b.newPage(); await p.setViewport({ width: 1500, height: 900 }); const wait = ms => new Promise(r => setTimeout(r, ms));
 const errs = [], out = []; p.on('pageerror', e => errs.push(e.message)); p.on('dialog', d => d.accept()); const check = (n, ok) => out.push((ok ? 'ok   ' : 'FAIL ') + n);
-await p.goto('file:///home/claude/app/dist/index.html'); await p.evaluate(() => localStorage.clear()); await p.reload();
+await p.goto('file:///home/claude/app/dist/index.html'); await p.evaluate(() => { localStorage.clear(); localStorage.setItem('kuadro-clickopen', '0'); }); await p.reload();
 const click = (sel, t) => p.evaluate((sel, t) => { const e = [...document.querySelectorAll(sel)].find(e => e.textContent.trim().startsWith(t)); if (!e) throw new Error('no ' + sel + ' ' + t); e.click(); }, sel, t);
 const sheet = t => p.evaluate(t => JSON.parse(localStorage.getItem('demo-data')).sheets.find(s => s.title === t), t);
 const titles = async t => (await sheet(t)).rows.slice(1).map(r => r[2]);

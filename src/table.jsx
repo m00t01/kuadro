@@ -2,7 +2,7 @@
 // Además: columnas con ancho ajustable, reordenables y ocultables (por persona), título fijo y selección de filas.
 import { useState, useEffect, useRef } from 'preact/hooks';
 import { Field } from './ui.jsx';
-import { ICON, parseFor, copyText, dueOf } from './shared.jsx';
+import { ICON, parseFor, copyText, dueOf, clickOpensPage } from './shared.jsx';
 import { fmtDate, urls } from './util.js';
 import { t as tr } from './i18n.js';
 
@@ -12,7 +12,7 @@ const cellText = (st, r, c) => { const ty = st.type(c), v = r.v[c]; if (ty === '
 export function TableView({ st, rows, cols, open, onCol, onAddCol, onNew, dups, onMenu, prefs, setPrefs, sel, setSel, icons, hiddenRows, fold, folderOps, onRowDrop, colorOf, onPasteList }) {
   const S = st.S, tc = S.config.settings.titleCol, canCol = st.can('manageColumns') || st.can('manageOptions');
   const [act, setAct] = useState(null), [anchor, setAnchor] = useState(null), [signal, setSignal] = useState({ n: 0 }), [dragCol, setDragCol] = useState(null), [overCol, setOverCol] = useState(null);
-  const box = useRef(), lastRow = useRef(null), guard = useRef(null), dragFrom = useRef(null), dragRow = useRef(null), [dropAt, setDropAt] = useState(null);
+  const box = useRef(), lastRow = useRef(null), guard = useRef(null), dragFrom = useRef(null), dragRow = useRef(null), [dropAt, setDropAt] = useState(null), clickT = useRef(null), clickOpen = clickOpensPage();
   // Arrastrar con el mouse para seleccionar un rango de celdas.
   useEffect(() => { const up = () => { dragFrom.current = null; }; document.addEventListener('mouseup', up); return () => document.removeEventListener('mouseup', up); }, []);
   const W = c => (prefs.widths || {})[c] || DEFAULT_W(st, c, tc);
@@ -126,9 +126,10 @@ export function TableView({ st, rows, cols, open, onCol, onAddCol, onNew, dups, 
         <td class={'num sticky' + ((st.can('moveTabs') || (folderOps && folderOps.can)) && !r.tmp ? ' grab' : '') + (fold && fold.info.get(r.id) ? ' inf' + (fold.info.get(r.id).last ? ' inf-last' : '') : '')} draggable={(st.can('moveTabs') || (folderOps && folderOps.can)) && !r.tmp} onClick={e => clickNum(e, i)} title={tr("Clic: seleccionar · Ctrl/Shift: varias · arrastra para reacomodar, o suéltala en una pestaña o carpeta")} onDragStart={e => { e.dataTransfer.setData('text/plain', r.tab + '|' + r.id); e.dataTransfer.setData('text/kuadro-row', r.id); e.dataTransfer.effectAllowed = 'move'; dragRow.current = r; }} onDragEnd={() => { dragRow.current = null; setDropAt(null); }}>
           {sel.has(r.id) ? <input type="checkbox" checked readOnly /> : <><span class="n">{i + 1}</span><span class="h">⠿</span></>}</td>
         {cols.map((c, j) => c in r.v ? <td data-col={c} data-rc={i + ':' + j} style={{ left: left(c) }} class={(c === tc ? 'title ' : '') + fz(c) + (act && act.r === i && act.c === j ? 'act ' : '') + (inRange(i, j) && rg && (rg.r0 !== rg.r1 || rg.c0 !== rg.c1) ? 'inrg ' : '') + (c === st.S.config.settings.dateCol ? (d => d ? (d.late ? 'due-late' : 'due-soon') : '')(dueOf(st, r)) : '')}
-          onMouseDown={e => { if (e.button !== 0 || e.target.closest('.pop, textarea, input, a, button')) return; if (e.shiftKey && act) { e.preventDefault(); if (!anchor) setAnchor(act); setAct({ r: i, c: j }); } else if (!(act && act.r === i && act.c === j)) { setAnchor(null); setAct({ r: i, c: j }); guard.current = i + ':' + j; setTimeout(() => { if (guard.current === i + ':' + j) guard.current = null; }, 400); } if (!e.shiftKey) dragFrom.current = { r: i, c: j }; focusBox(); }}
+          onMouseDown={e => { if (e.detail > 1) clearTimeout(clickT.current); if (e.button !== 0 || e.target.closest('.pop, textarea, input, a, button')) return; if (e.shiftKey && act) { e.preventDefault(); if (!anchor) setAnchor(act); setAct({ r: i, c: j }); } else if (!(act && act.r === i && act.c === j)) { setAnchor(null); setAct({ r: i, c: j }); guard.current = i + ':' + j; setTimeout(() => { if (guard.current === i + ':' + j) guard.current = null; }, 400); } if (!e.shiftKey) dragFrom.current = { r: i, c: j }; focusBox(); }}
           onMouseEnter={e => { const d = dragFrom.current; if (!d || !(e.buttons & 1) || (d.r === i && d.c === j && !anchor)) return; guard.current = null; setAnchor(d); setAct({ r: i, c: j }); }}
-          onDblClick={e => { if (e.target.closest('.pop, textarea, input')) return; setAct({ r: i, c: j }); setSignal({ n: signal.n + 1, text: null, key: act.r + ':' + act.c }); }}>
+          onClick={e => { if (!clickOpen || c !== tc || r.tmp || e.shiftKey || e.ctrlKey || e.metaKey || e.detail > 1 || e.target.closest('.pop, textarea, input, a, button, .prog') || (rg && (rg.r0 !== rg.r1 || rg.c0 !== rg.c1))) return; clearTimeout(clickT.current); clickT.current = setTimeout(() => open(r), 230); }}
+          onDblClick={e => { clearTimeout(clickT.current); if (e.target.closest('.pop, textarea, input')) return; guard.current = null; setAct({ r: i, c: j }); setSignal({ n: signal.n + 1, text: null, key: i + ':' + j }); }}>
           {c === tc && st.can('openPages') && <button class="openbtn" onClick={() => open(r)}>{tr("Abrir")}</button>}{c === tc && icons && icons[r.id] && <span class="ticon">{icons[r.id]}</span>}{c === tc && (() => { const pg = st.progressOf(r.id); return pg.total ? <span class={'prog sm' + (pg.done === pg.total ? ' full' : '')} title={tr('{d} de {t} tareas hechas', { d: pg.done, t: pg.total })}><span class="pt"><i style={{ width: Math.round(100 * pg.done / pg.total) + '%' }} /></span><b>{pg.done}/{pg.total}</b></span> : null; })()}
           <Field st={st} row={r} col={c} table guard={() => { if (guard.current === i + ':' + j) { guard.current = null; return true; } return false; }} active={!!act && act.r === i && act.c === j} signal={signal.key === i + ':' + j ? signal : null} onConsumed={() => setSignal(x => ({ ...x, key: null }))} onDone={onDone} />
           {c === tc && dups.has(r.id) && <span class="dup" title={tr("Hay otro elemento con el mismo título")}>{tr("Duplicado")}</span>}</td> : <td class="na" data-rc={i + ':' + j} />)}

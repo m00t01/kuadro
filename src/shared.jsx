@@ -37,3 +37,7 @@ export function parseFor(type, txt) {
   if (type === 'number') { const n = Number(txt.replace(/[^\d.,-]/g, '').replace(',', '.')); return txt === '' || isNaN(n) ? txt : String(n); }
   return txt;
 }
+
+// Preferencia personal: un clic en el título abre su página (activado por defecto).
+export const clickOpensPage = () => { try { return localStorage.getItem('kuadro-clickopen') !== '0'; } catch { return true; } };
+export const setClickOpensPage = on => { try { localStorage.setItem('kuadro-clickopen', on ? '1' : '0'); } catch { } };

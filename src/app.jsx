@@ -5,7 +5,7 @@ import { MockSheets } from './mock.js';
 import { GoogleSheets } from './gapi.js';
 import { af, useStore, Chip, Pop, Modal, Field, ColumnEditor, RichEditor, splitMulti, optionsOf, colorOf } from './ui.jsx';
 import { urls, ytId, imgSrc, fmtDate, norm, newId, isISO } from './util.js';
-import { alertPrefs, setAlertPrefs, native, LS, ICON, DONE, iso, Avatar, copyText } from './shared.jsx';
+import { clickOpensPage, setClickOpensPage, alertPrefs, setAlertPrefs, native, LS, ICON, DONE, iso, Avatar, copyText } from './shared.jsx';
 import { TableView, BulkBar } from './table.jsx';
 import { KanbanView, GalleryView, CalendarView, defaultCardProps } from './views.jsx';
 import { RowPage, HistList } from './page.jsx';
@@ -43,6 +43,7 @@ function Appearance({ value, onChange }) {
     {a.image && <label class="f">{tr('Desenfoque:')} {a.blur}px<input type="range" min="0" max="24" value={a.blur} onInput={e => set({ blur: +e.target.value })} /></label>}
     <button class="btn" onClick={() => onChange({ ...APPEAR0 })}>{tr("Restablecer")}</button>
     <p class="hint">{tr("La apariencia es personal: solo cambia en esta computadora, no para tu equipo.")}</p>
+    <TableBehavior />
     {native && native.prefs && <Shortcuts />}
   </div>;
 }
@@ -210,6 +211,12 @@ function ChecklistSettings({ st }) {
     <p class="hint">{tr("Una tarea por línea.")}</p></div>;
 }
 // Avisos de fechas: preferencia personal.
+function TableBehavior() {
+  const [on, setOn] = useState(clickOpensPage());
+  return <div class="f" style={{ marginTop: '18px' }}><b class="tx">{tr("Tabla")}</b>
+    <label class="chkrow"><input type="checkbox" checked={on} onChange={e => { setClickOpensPage(e.target.checked); setOn(e.target.checked); }} />{tr("Un clic en el título abre su página (doble clic para renombrarlo ahí mismo)")}</label>
+    <p class="hint">{tr("Si lo desactivas, un clic solo selecciona la celda y la página se abre con el botón «Abrir» o con Ctrl+Enter.")}</p></div>;
+}
 function DateAlerts() {
   const [p, setP] = useState(alertPrefs()), up = x => { setAlertPrefs(x); setP(alertPrefs()); };
   return <div class="f"><b class="tx">{tr("Avisos de fechas")}</b>

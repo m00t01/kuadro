@@ -6,7 +6,7 @@ const errs = []; p.on('pageerror', e => errs.push(e.message)); p.on('dialog', d 
 const wait = ms => new Promise(r => setTimeout(r, ms)), out = [], ok = (n, v) => out.push((v ? 'ok   ' : 'FAIL ') + n);
 const navs = () => p.evaluate(() => [...document.querySelectorAll('.sidebar .nav')].map(b => b.childNodes[0]?.textContent?.trim()));
 const sheets = () => p.evaluate(() => JSON.parse(localStorage.getItem('demo-data-en')).sheets.map(s => s.title));
-await p.goto('file:///home/claude/kuadro/dist/index.html'); await p.evaluate(() => localStorage.clear()); await p.reload(); await wait(400);
+await p.goto('file:///home/claude/kuadro/dist/index.html'); await p.evaluate(() => { localStorage.clear(); localStorage.setItem('kuadro-clickopen', '0'); }); await p.reload(); await wait(400);
 await p.evaluate(() => [...document.querySelectorAll('button')].find(b => b.textContent.startsWith('Open demo')).click()); await wait(1800);
 ok('"+ New tab" button below tabs', await p.evaluate(() => { const n = [...document.querySelectorAll('.sidebar .nav')]; const i = n.findIndex(b => b.textContent.includes('+ New tab')), j = n.findIndex(b => b.textContent.includes('Shorts')); return i > j && j >= 0; }));
 await p.evaluate(() => [...document.querySelectorAll('.sidebar .nav')].find(b => b.textContent.includes('+ New tab')).click()); await wait(150);

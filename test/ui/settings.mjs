@@ -7,7 +7,7 @@ const wait = ms => new Promise(r => setTimeout(r, ms)), out = [], ok = (n, v) =>
 const click = (sel, text) => p.evaluate((s, t) => { const e = [...document.querySelectorAll(s)].find(x => x.textContent.trim().startsWith(t)); if (!e) throw new Error('no ' + t); e.click(); }, sel, text);
 const setVal = (sel, v) => p.evaluate((s, v) => { const i = document.querySelector(s); const proto = i.tagName === 'TEXTAREA' ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype; Object.getOwnPropertyDescriptor(proto, 'value').set.call(i, v); i.dispatchEvent(new Event('input', { bubbles: true })); }, sel, v);
 const sheetTitles = () => p.evaluate(() => { const s = JSON.parse(localStorage.getItem('demo-data-en')).sheets.find(x => x.title === 'Main channel'); const h = s.rows[0]; return s.rows.slice(1).map(r => r[h.indexOf('Video title')]); });
-await p.goto('file:///home/claude/kuadro/dist/index.html'); await p.evaluate(() => localStorage.clear()); await p.reload(); await wait(400);
+await p.goto('file:///home/claude/kuadro/dist/index.html'); await p.evaluate(() => { localStorage.clear(); localStorage.setItem('kuadro-clickopen', '0'); }); await p.reload(); await wait(400);
 await click('button', 'Open demo'); await wait(1800);
 // Settings layout.
 await click('.sidebar .nav', 'Settings'); await wait(300);

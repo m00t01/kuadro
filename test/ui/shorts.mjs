@@ -6,7 +6,7 @@ const errs = []; p.on('pageerror', e => errs.push(e.message));
 const png = fs.existsSync('/tmp/thumb.png') ? fs.readFileSync('/tmp/thumb.png') : null;
 await p.setRequestInterception(true); p.on('request', r => r.url().startsWith('https://example.test/') && png ? r.respond({ status: 200, contentType: 'image/png', body: png }) : r.continue());
 const wait = ms => new Promise(r => setTimeout(r, ms)), out = [], ok = (n, v) => out.push((v ? 'ok   ' : 'FAIL ') + n);
-await p.goto('file:///home/claude/kuadro/dist/index.html'); await p.evaluate(() => localStorage.clear()); await p.reload(); await wait(400);
+await p.goto('file:///home/claude/kuadro/dist/index.html'); await p.evaluate(() => { localStorage.clear(); localStorage.setItem('kuadro-clickopen', '0'); }); await p.reload(); await wait(400);
 await p.evaluate(() => [...document.querySelectorAll('button')].find(b => b.textContent.startsWith('Open demo')).click()); await wait(1800);
 await p.evaluate(() => { const d = JSON.parse(localStorage.getItem('demo-data-en')); const s = d.sheets.find(x => x.title === 'Shorts'); const h = s.rows[0]; s.rows[1][h.indexOf('Thumbnail file')] = 'https://example.test/thumb.png'; s.rows[1][h.indexOf('Video title')] = 'I STOLE the GOLDEN EGG in Pet Farm and nobody noticed'; localStorage.setItem('demo-data-en', JSON.stringify(d)); });
 await p.reload(); await wait(1800);

@@ -3,7 +3,7 @@ const b = await puppeteer.launch({ executablePath: '/usr/bin/google-chrome', hea
 const p = await b.newPage(); await p.setViewport({ width: 1500, height: 900 });
 const errs = [], out = []; p.on('console', m => { if (m.type() === 'error' && !/ERR_TUNNEL|net::/.test(m.text())) errs.push(m.text()); }); p.on('pageerror', e => errs.push('PAGEERR ' + e.message));
 p.on('dialog', d => d.accept());
-await p.goto('file:///home/claude/app/dist/index.html'); await p.evaluate(() => localStorage.clear()); await p.reload(); const shot = n => p.screenshot({ path: `/tmp/shots/${n}.png` }); const wait = ms => new Promise(r => setTimeout(r, ms));
+await p.goto('file:///home/claude/app/dist/index.html'); await p.evaluate(() => { localStorage.clear(); localStorage.setItem('kuadro-clickopen', '0'); }); await p.reload(); const shot = n => p.screenshot({ path: `/tmp/shots/${n}.png` }); const wait = ms => new Promise(r => setTimeout(r, ms));
 const clickText = async (sel, t) => { const ok = await p.evaluate((sel, t) => { const e = [...document.querySelectorAll(sel)].find(e => e.textContent.trim().startsWith(t)); if (e) e.click(); return !!e; }, sel, t); if (!ok) errs.push('NO ELEMENT ' + sel + ' ' + t); await wait(350); };
 const demo = () => p.evaluate(() => JSON.parse(localStorage.getItem('demo-data')));
 const sheet = async t => (await demo()).sheets.find(s => s.title === t);

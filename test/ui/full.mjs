@@ -11,7 +11,7 @@ const data = () => p.evaluate(() => JSON.parse(localStorage.getItem('demo-data-e
 const sheet = async t => (await data()).sheets.find(s => s.title === t);
 const col = async (tab, name) => { const s = await sheet(tab); const i = s.rows[0].indexOf(name); return s.rows.slice(1).map(r => r[i]); };
 const step = async (name, fn) => { try { await fn(); } catch (e) { out.push('EXC  ' + name + ': ' + e.message.split('\n')[0]); await shot('fail-' + name.replace(/\W+/g, '_')); } };
-await p.goto('file:///home/claude/app/dist/index.html'); await p.evaluate(() => localStorage.clear()); await p.reload(); await wait(400);
+await p.goto('file:///home/claude/app/dist/index.html'); await p.evaluate(() => { localStorage.clear(); localStorage.setItem('kuadro-clickopen', '0'); }); await p.reload(); await wait(400);
 
 await step('home', async () => {
   ok('inicio en inglés por defecto', await p.evaluate(() => document.body.innerText.includes('Open demo') && document.body.innerText.includes('Tables, kanban')));

@@ -2,7 +2,7 @@ import puppeteer from 'puppeteer-core';
 const b = await puppeteer.launch({ executablePath: '/usr/bin/google-chrome', headless: 'new', args: ['--no-sandbox', '--allow-file-access-from-files'] });
 const p = await b.newPage(); await p.setViewport({ width: 1500, height: 900 }); const wait = ms => new Promise(r => setTimeout(r, ms));
 const errs = [], out = []; p.on('pageerror', e => errs.push(e.message)); const check = (n, ok) => out.push((ok ? 'ok   ' : 'FAIL ') + n);
-await p.goto('file:///home/claude/app/dist/index.html'); await p.evaluate(() => localStorage.clear()); await p.reload();
+await p.goto('file:///home/claude/app/dist/index.html'); await p.evaluate(() => { localStorage.clear(); localStorage.setItem('kuadro-clickopen', '0'); }); await p.reload();
 const click = (sel, t) => p.evaluate((sel, t) => { const e = [...document.querySelectorAll(sel)].find(e => e.textContent.trim().startsWith(t)); if (!e) throw new Error('no ' + sel + ' ' + t); e.click(); }, sel, t);
 const hov = async t => { const h = await p.evaluateHandle(t => [...document.querySelectorAll('.ctx > .ctx-i')].find(e => e.textContent.startsWith(t)), t); await h.hover(); await wait(200); };
 await click('button', 'Abrir demostración'); await wait(1500); await click('.seg button', 'Kanban'); await wait(400);

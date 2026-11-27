@@ -127,6 +127,10 @@ function ChecklistBar({ st, row }) {
       <div class="pop-i muted" onClick={() => { st.addChecklist(row.id, '', [tr('Nueva tarea')]); setOpen(false); }}>{tr("Checklist vacía")}</div></Pop>}</div>;
 }
 export function RowPage({ st, row, onClose, dup, onMoved }) {
+  // Esc: si estás escribiendo en algo (título, celda, guion) te saca de ahí; si no, cierra la página.
+  useEffect(() => { const k = e => { if (e.key !== 'Escape' || e.defaultPrevented || document.querySelector('.overlay, .pop, .ctx')) return; const a = document.activeElement, pg = document.querySelector('.page');
+    if (pg && a && pg.contains(a) && (a.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName))) { e.preventDefault(); a.blur(); return; }
+    if (pg) { e.preventDefault(); onClose(); } }; document.addEventListener('keydown', k, true); return () => document.removeEventListener('keydown', k, true); }, [onClose]);
   const S = st.S, s = S.config.settings, tc = s.titleCol, [full, setFull] = useState(false), [title, setTitle] = useState(row.v[tc] || ''), [iconPop, setIconPop] = useState(false), [coverPop, setCoverPop] = useState(false), [emo, setEmo] = useState('');
   const focus = useRef(false), ta = useRef(), iconRef = useRef(), coverRef = useRef();
   const meta = S.pageMeta[row.id] || {}, setMeta = p => st.setPageMeta(row.id, p), canMeta = st.can('editPages') && !row.tmp;
@@ -134,7 +138,7 @@ export function RowPage({ st, row, onClose, dup, onMoved }) {
   useEffect(() => { const t = ta.current; if (t) { t.style.height = '0'; t.style.height = t.scrollHeight + 'px'; } }, [title, full]);
   useEffect(() => { if (row.tmp) return; st.setPresence(row.id); const iv = setInterval(() => st.setPresence(row.id), 20000); return () => { clearInterval(iv); st.setPresence(''); }; }, [row.id]);
   const here = S.presence.filter(p => p.rowId === row.id), merged = S.merged[row.id], recentMerge = merged && Date.now() - merged.at < 10000;
-  const cols = S.tabs[row.tab].header.filter(h => h && h !== 'ID' && h !== tc && !st.hiddenCols().includes(h));
+  const cols = S.tabs[row.tab].header.filter(h => h && h !== 'ID' && h !== tc && h !== st.folderCol() && h !== st.colorCol() && !st.hiddenCols().includes(h));
   const hist = S.history.filter(h => h.rowId === row.id).reverse().slice(0, 30);
   const others = S.order.filter(t => t !== row.tab && !st.hiddenTabs().includes(t) && S.tabs[t].idCol >= 0);
   const thumb = s.imageCol && row.v[s.imageCol];
@@ -148,7 +152,7 @@ export function RowPage({ st, row, onClose, dup, onMoved }) {
         {meta.icon && <button class="page-icon" ref={iconRef} onClick={() => canMeta && setIconPop(true)} title={tr("Cambiar ícono")}>{meta.icon}</button>}
         {canMeta && <div class="page-add">{!meta.icon && <button class="mini ghost" ref={iconRef} onClick={() => setIconPop(true)}>{tr("☺ Agregar ícono")}</button>}{!meta.cover && <button class="mini ghost" ref={coverRef} onClick={() => setCoverPop(true)}>{tr("▭ Agregar portada")}</button>}</div>}
         <textarea ref={ta} class="ptitle" rows="1" placeholder={tr("Sin título")} value={title} readOnly={!st.canEditCol(tc) || row.tmp} onInput={e => setTitle(e.target.value)} onFocus={() => focus.current = true}
-          onBlur={() => { focus.current = false; if (title !== (row.v[tc] || '')) st.setCell(row.tab, row.id, tc, title.replace(/\s*\n\s*/g, ' ')); }} onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); e.target.blur(); } }} />
+          onBlur={() => { focus.current = false; if (title !== (row.v[tc] || '')) st.setCell(row.tab, row.id, tc, title.replace(/\s*\n\s*/g, ' ')); }} onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); e.target.blur(); const ed = e.target.closest('.page')?.querySelector('.ProseMirror'); if (ed && ed.isContentEditable) setTimeout(() => { ed.focus(); const r = document.createRange(); r.setStart(ed, 0); r.collapse(true); const sel = getSelection(); sel.removeAllRanges(); sel.addRange(r); }, 0); } }} />
         {dup && <div class="warn">{tr("Hay otro elemento con este mismo título.")}</div>}
         {row.tmp && <div class="warn">{tr("Esta fila aún no tiene ID en el Sheet, así que es de solo lectura.")}</div>}
         <div class="props">{cols.map(c => <div class="prop"><div class="pl"><span class="tyi">{ICON[st.type(c)]}</span>{c}</div><div class="pv"><Field st={st} row={row} col={c} big /></div></div>)}</div>
