@@ -11,10 +11,10 @@ const check = async n => { const r = await p.evaluate(() => [...document.querySe
 await p.goto('file:///home/claude/kuadro/dist/index.html'); await p.evaluate(() => { localStorage.clear(); localStorage.setItem('kuadro-clickopen', '0'); }); await p.reload(); await wait(400);
 await p.evaluate(() => [...document.querySelectorAll('a,button')].find(x => /how|credential|cómo/i.test(x.textContent))?.click()); await wait(300);
 if (await p.$('.modal')) { await check('home-help'); await p.keyboard.press('Escape'); await wait(200); }
-await click('button', 'Open demo'); await wait(1800);
+await click('button', 'Try the demo'); await wait(1800);
 await click('.sidebar .nav', 'Settings'); await wait(300); await check('settings');
 await click('.set nav button', 'Automations'); await wait(200);
-await click('button', '✨ Add from template'); await wait(300);
+await click('button', 'Add from template'); await wait(300);
 ok('templates shown inside Settings (no extra window)', await p.evaluate(() => document.querySelectorAll('.modal').length === 1 && !!document.querySelector('.set-b .tpl-gal')));
 await p.evaluate(() => document.querySelector('.set-b').scrollTo(0, 500)); await wait(150);
 ok('back button and search stay visible while scrolling', await p.evaluate(() => { const h = document.querySelector('.ip-h').getBoundingClientRect(), q = document.querySelector('.tpl-q').getBoundingClientRect(), sb = document.querySelector('.set-b').getBoundingClientRect(); return h.top >= sb.top - 1 && q.top > h.top && q.top < sb.top + 120; }));

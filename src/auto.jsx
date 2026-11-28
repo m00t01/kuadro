@@ -3,6 +3,7 @@ import { useState } from 'preact/hooks';
 import { Modal, optionsOf } from './ui.jsx';
 import { newId } from './util.js';
 import { t as tr } from './i18n.js';
+import { Ic } from './shared.jsx';
 
 const COND_OPS = { is: 'es', isnot: 'no es', empty: 'está vacío', full: 'no está vacío', has: 'contiene' };
 const DATE_OPS = { past: 'ya pasó', today: 'es hoy', within: 'es en los próximos N días', future: 'es en el futuro', empty: 'está vacío', full: 'no está vacío' };
@@ -80,7 +81,7 @@ export function AutomationEditor({ st, initial, onSave, onClose, inline }) {
           : st.type(c.col) === 'date' ? <><select value={c.op} onChange={e => setC(i, { op: e.target.value })}>{Object.entries(DATE_OPS).map(([k, l]) => <option value={k}>{tr(l)}</option>)}</select>{c.op === 'within' && <input type="number" min="0" style={{ width: '64px' }} value={c.val || 3} onInput={e => setC(i, { val: e.target.value })} />}</>
           : <><select value={c.op} onChange={e => setC(i, { op: e.target.value })}>{Object.entries(COND_OPS).map(([k, l]) => <option value={k}>{tr(l)}</option>)}</select>
             {['is', 'isnot', 'has'].includes(c.op) && <ValueInput st={st} col={c.col} value={c.val} onChange={v => setC(i, { val: v })} />}</>}
-        <button class="icon" onClick={() => up({ conds: a.conds.filter((_, j) => j !== i) })}>✕</button></div>)}
+        <button class="icon" onClick={() => up({ conds: a.conds.filter((_, j) => j !== i) })}><Ic n="x" s={14} /></button></div>)}
       <button class="mini" onClick={() => up({ conds: [...a.conds, { col: names[0], op: 'is', val: '' }] })}>{tr("＋ Condición")}</button></div>
     <div class="ablock"><div class="akw">{tr("ENTONCES")}</div>
       {a.actions.map((x, i) => <div class="arow"><select value={x.type} onChange={e => setX(i, { type: e.target.value })}>{Object.entries(ACTS).map(([k, l]) => <option value={k}>{tr(l)}</option>)}</select>
@@ -97,11 +98,11 @@ export function AutomationEditor({ st, initial, onSave, onClose, inline }) {
         {x.type === 'comment' && <input class="grow" placeholder={tr('Comentario (usa {titulo}, {quien} y {fecha})')} value={x.msg || ''} onInput={e => setX(i, { msg: e.target.value })} />}
         {x.type === 'notify' && <><select value={x.to || ''} onChange={e => setX(i, { to: e.target.value })}><option value="">{tr('(a quién)')}</option><option value="me">{tr("A mí")}</option>{people.map(p => <option value={'col:' + p}>{tr('A la persona en «{c}»', { c: p })}</option>)}{S.config.users.map(u => <option value={'user:' + u.email}>{u.name}</option>)}</select>
           <input class="grow" placeholder={tr('Mensaje (usa {titulo} y {quien})')} value={x.msg || ''} onInput={e => setX(i, { msg: e.target.value })} /></>}
-        <button class="icon" onClick={() => up({ actions: a.actions.filter((_, j) => j !== i) })}>✕</button></div>)}
+        <button class="icon" onClick={() => up({ actions: a.actions.filter((_, j) => j !== i) })}><Ic n="x" s={14} /></button></div>)}
       <datalist id="kfolders">{folders.map(f => <option value={f} />)}</datalist>
       <button class="mini" onClick={() => up({ actions: [...a.actions, { type: 'set', col: '', val: '' }] })}>{tr("＋ Acción")}</button></div>
     <div class="info">{describe(st, a)}</div>
-    <p class="hint">{tr("Las automatizaciones se ejecutan en la computadora de quien hace el cambio. Los avisos llegan a la bandeja 🔔 y como notificación de escritorio.")}</p>
+    <p class="hint">{tr("Las automatizaciones se ejecutan en la computadora de quien hace el cambio. Los avisos llegan a la bandeja y como notificación de escritorio.")}</p>
     <div class="row-end"><button class="btn" onClick={onClose}>{tr("Cancelar")}</button><button class="btn primary" disabled={!valid} onClick={() => onSave({ ...a, name: a.name.trim() || describe(st, a).slice(0, 48) })}>{tr("Guardar")}</button></div>
   </div>;
   return inline ? <div class="inline-panel"><div class="ip-h"><button class="mini" onClick={onClose}>{tr('← Volver')}</button><b>{title}</b></div>{body}</div> : <Modal title={title} onClose={onClose} wide>{body}</Modal>;
@@ -165,10 +166,10 @@ export function AutomationList({ st }) {
       <input class="tpl-q" ref={e => e && !e.dataset.f && (e.dataset.f = 1, e.focus())} placeholder={tr("Buscar plantillas… (ej. publicar, miniatura, Short, fecha)")} value={q} onInput={e => setQ(e.target.value)} onKeyDown={e => { if (e.key === 'Escape') { e.stopPropagation(); if (q) setQ(''); else setGal(false); } }} />
       <p class="hint">{tr("Pensadas para creadores de contenido y armadas con las columnas de tu proyecto. Al elegir una puedes revisarla y ajustarla antes de guardarla.")}</p>
       {Object.entries(CATS).map(([k, l]) => { const xs = tpls.filter(t => t.cat === k); return xs.length ? <div><div class="ctx-t">{l}</div>{xs.map(t => { const used = list.some(a => a.tpl === t.key); return <div class="tpl-i"><div class="grow"><b>{t.name}</b><div class="muted sm">{t.desc}</div></div>
-        <button class={'mini' + (used ? '' : ' primary')} onClick={() => setEd({ ...t.build(), tpl: t.key })}>{used ? tr('Agregar otra vez') : tr('Usar')}</button></div>; })}</div> : null; })}
+        <button class="mini" onClick={() => setEd({ ...t.build(), tpl: t.key })}>{used ? tr('Agregar otra vez') : tr('Usar')}</button></div>; })}</div> : null; })}
       {!tpls.length && <p class="muted">{all.length ? tr("Ninguna plantilla coincide con «{q}».", { q }) : tr("No hay plantillas que encajen con las columnas de este proyecto todavía.")}</p>}</div></div>;
   return <div>{list.map(a => <div class="auto-i"><label class="switch" title={a.enabled !== false ? tr('Activa') : tr('Pausada')}><input type="checkbox" checked={a.enabled !== false} onChange={e => { a.enabled = e.target.checked; save(); }} /><span /></label>
-    <div class="grow"><b>⚡ {a.name}</b><div class="muted sm">{describe(st, a)}</div></div><button class="mini" onClick={() => setEd(a)}>{tr("Editar")}</button><button class="icon" title={tr("Eliminar")} onClick={() => { if (confirm(tr('¿Eliminar esta automatización?'))) { S.config.automations = list.filter(x => x !== a); save(); } }}>✕</button></div>)}
+    <div class="grow"><b>{a.name}</b><div class="muted sm">{describe(st, a)}</div></div><button class="mini" onClick={() => setEd(a)}>{tr("Editar")}</button><button class="icon" title={tr("Eliminar")} onClick={() => { if (confirm(tr('¿Eliminar esta automatización?'))) { S.config.automations = list.filter(x => x !== a); save(); } }}><Ic n="x" s={14} /></button></div>)}
     {!list.length && <p class="muted">{tr("Aún no hay automatizaciones.")}</p>}
-    <div class="lrow0"><button class="btn primary" onClick={() => setGal(true)}>{tr("✨ Agregar desde plantilla")}</button><button class="btn" onClick={() => setEd('new')}>{tr("＋ Crear desde cero")}</button></div></div>;
+    <div class="lrow0"><button class="btn primary" onClick={() => setGal(true)}><Ic n="grid" s={14} />{tr("Agregar desde plantilla")}</button><button class="btn" onClick={() => setEd('new')}><Ic n="plus" s={14} />{tr("Crear desde cero")}</button></div></div>;
 }

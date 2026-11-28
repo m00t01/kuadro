@@ -6,7 +6,7 @@ const errs = []; p.on('pageerror', e => errs.push(e.message));
 const wait = ms => new Promise(r => setTimeout(r, ms)), out = [], ok = (n, v) => out.push((v ? 'ok   ' : 'FAIL ') + n);
 const img = 'data:image/png;base64,' + fs.readFileSync('/tmp/thumb.png').toString('base64');
 await p.goto('file:///home/claude/kuadro/dist/index.html'); await p.evaluate(i => { localStorage.clear(); localStorage.setItem('appearance', JSON.stringify({ theme: 'dark', image: i, blur: 12, dim: 55 })); }, img); await p.reload(); await wait(400);
-await p.evaluate(() => [...document.querySelectorAll('button')].find(b => b.textContent.startsWith('Open demo')).click()); await wait(2000);
+await p.evaluate(() => [...document.querySelectorAll('button')].find(b => b.textContent.startsWith('Try the demo')).click()); await wait(2000);
 ok('background baked into the body', await p.evaluate(() => document.body.classList.contains('img-flat') && getComputedStyle(document.body).backgroundImage.startsWith('url("data:image/jpeg')));
 ok('no blurred layer behind the text', await p.evaluate(() => getComputedStyle(document.body, '::before').display === 'none' && getComputedStyle(document.querySelector('.sidebar')).backdropFilter === 'none'));
 await p.hover('.grid tbody tr:nth-child(2) td.title'); await wait(100);

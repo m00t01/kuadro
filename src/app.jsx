@@ -5,7 +5,7 @@ import { MockSheets } from './mock.js';
 import { GoogleSheets } from './gapi.js';
 import { af, useStore, Chip, Pop, Modal, Field, ColumnEditor, RichEditor, splitMulti, optionsOf, colorOf } from './ui.jsx';
 import { urls, ytId, imgSrc, fmtDate, fmtMonth, norm, newId, isISO } from './util.js';
-import { clickOpensPage, setClickOpensPage, alertPrefs, setAlertPrefs, native, LS, ICON, DONE, iso, Avatar, copyText } from './shared.jsx';
+import { clickOpensPage, setClickOpensPage, alertPrefs, setAlertPrefs, native, LS, ICON, DONE, iso, Avatar, copyText, Ic, ago, Empty } from './shared.jsx';
 import { TableView, BulkBar } from './table.jsx';
 import { KanbanView, GalleryView, CalendarView, defaultCardProps } from './views.jsx';
 import { RowPage, HistList } from './page.jsx';
@@ -37,7 +37,7 @@ function Appearance({ value, onChange }) {
     {isLight(a) && !a.image ? <p class="hint">{tr("En tema claro el color de fondo no aplica; elige una imagen si quieres personalizarlo.")}</p> : null}
     <div class="f">{tr("Color de fondo (tema oscuro)")}<div class="swatches">{BG_PRESETS.map(([n, c]) => <button title={n} class={'sw' + (a.color === c && !a.image ? ' on' : '')} style={{ background: c }} onClick={() => set({ color: c, image: '' })} />)}
       <label class="sw custom" title={tr("Color personalizado")}><input type="color" value={a.color} onInput={e => set({ color: e.target.value, image: '' })} />+</label></div></div>
-    <div class="f">{tr("Imagen de fondo")}<div class="lrow"><label class="btn">{tr("Elegir imagen…")}<input type="file" accept="image/*" hidden onChange={async e => { const f = e.target.files[0]; e.target.value = ''; if (!f) return; try { setErr(''); set({ image: await shrinkImage(f) }); } catch { setErr(tr('No se pudo leer esa imagen.')); } }} /></label>
+    <div class="f">{tr("Imagen de fondo")}<div class="lrow0"><label class="btn">{tr("Elegir imagen…")}<input type="file" accept="image/*" hidden onChange={async e => { const f = e.target.files[0]; e.target.value = ''; if (!f) return; try { setErr(''); set({ image: await shrinkImage(f) }); } catch { setErr(tr('No se pudo leer esa imagen.')); } }} /></label>
       {a.image && <button class="btn" onClick={() => set({ image: '' })}>{tr("Quitar imagen")}</button>}{a.image && <img class="bgthumb" src={a.image} />}</div>{err && <p class="hint">{err}</p>}</div>
     {a.image && <label class="f">{tr('Oscurecer la imagen:')} {a.dim}%<input type="range" min="0" max="90" value={a.dim} onInput={e => set({ dim: +e.target.value })} /></label>}
     {a.image && <label class="f">{tr('Desenfoque:')} {a.blur}px<input type="range" min="0" max="24" value={a.blur} onInput={e => set({ blur: +e.target.value })} /></label>}
@@ -122,7 +122,7 @@ function UpdateBanner() {
   if (!u || !(u.state === 'ready' || u.state === 'available') || hide === u.version) return null;
   return <div class="upd-banner"><span>{u.state === 'ready' ? tr('Kuadro {v} está lista.', { v: u.version }) : tr('Hay una versión nueva de Kuadro: {v}.', { v: u.version })}</span>
     <button class="btn primary" onClick={() => native.installUpdate()}>{u.state === 'ready' ? tr('Reiniciar y actualizar') : tr('Descargar')}</button>
-    <button class="icon" title={tr("Más tarde")} onClick={() => setHide(u.version)}>✕</button></div>;
+    <button class="icon" title={tr("Más tarde")} onClick={() => setHide(u.version)}><Ic n="x" s={14} /></button></div>;
 }
 // Versión y botón compacto para la pantalla de inicio.
 function HomeVersion() {
@@ -205,8 +205,8 @@ function ChecklistSettings({ st }) {
   return <div><p class="hint">{tr("Listas de tareas que puedes agregar a la página de cada video con «＋ Checklist» o con clic derecho. El progreso (por ejemplo 3/6) se ve en la tabla y en las tarjetas, y las automatizaciones pueden agregarlas o reaccionar cuando se completan.")}</p>
     {list.map((k, i) => <div class="chk-ed"><input class="grow" value={k.name} onBlur={e => save(list.map((x, j) => j === i ? { ...x, name: e.target.value.trim() || x.name } : x))} />
       <textarea rows={Math.max(3, k.items.length)} value={k.items.join('\n')} onBlur={e => save(list.map((x, j) => j === i ? { ...x, items: e.target.value.split('\n').map(t => t.trim()).filter(Boolean) } : x))} />
-      <button class="icon" title={tr("Eliminar")} onClick={() => confirm(tr('¿Eliminar la checklist «{n}»?', { n: k.name })) && save(list.filter((_, j) => j !== i))}>✕</button></div>)}
-    <div class="lrow0"><button class="btn" onClick={() => save([...list, { id: newId(), name: tr('Nueva checklist'), items: [tr('Primera tarea')] }])}>{tr("＋ Nueva checklist")}</button>
+      <button class="icon" title={tr("Eliminar")} onClick={() => confirm(tr('¿Eliminar la checklist «{n}»?', { n: k.name })) && save(list.filter((_, j) => j !== i))}><Ic n="x" s={14} /></button></div>)}
+    <div class="lrow0"><button class="btn" onClick={() => save([...list, { id: newId(), name: tr('Nueva checklist'), items: [tr('Primera tarea')] }])}><Ic n="plus" s={14} />{tr("Nueva checklist")}</button>
       <button class="btn" onClick={() => confirm(tr('¿Volver a las checklists de ejemplo?')) && save(st.defaultChecklists())}>{tr("Restablecer ejemplos")}</button></div>
     <p class="hint">{tr("Una tarea por línea.")}</p></div>;
 }
@@ -220,7 +220,7 @@ function TableBehavior() {
 function DateAlerts() {
   const [p, setP] = useState(alertPrefs()), up = x => { setAlertPrefs(x); setP(alertPrefs()); };
   return <div class="f"><b class="tx">{tr("Avisos de fechas")}</b>
-    <label class="chkrow"><input type="checkbox" checked={p.on} onChange={e => up({ on: e.target.checked })} />{tr("Avisarme de videos atrasados o por vencer (bandeja 🔔 y una notificación al día)")}</label>
+    <label class="chkrow"><input type="checkbox" checked={p.on} onChange={e => up({ on: e.target.checked })} />{tr("Avisarme de videos atrasados o por vencer (bandeja y una notificación al día)")}</label>
     {p.on && <div class="lrow0"><span>{tr("Avisar desde")}</span><input type="number" min="0" max="30" style={{ width: '64px' }} value={p.days} onInput={e => up({ days: Math.max(0, Math.min(30, +e.target.value || 0)) })} /><span>{tr("días antes")}</span>
       <select value={p.scope} onChange={e => up({ scope: e.target.value })}><option value="mine">{tr("de lo que tengo asignado")}</option><option value="all">{tr("de todo el proyecto")}</option></select></div>}
     <p class="hint">{tr("Usa la columna de fecha del calendario. Lo atrasado se ve en rojo y lo que vence pronto en naranja. Lo publicado o descartado no cuenta.")}</p></div>;
@@ -255,7 +255,7 @@ function ContextMenu({ menu, onClose }) {
     {items.map((it, i) => it === 'sep' ? <div class="ctx-sep" /> :
       <div class={'ctx-i' + (it.danger ? ' danger' : '') + (it.disabled ? ' off' : '') + (it.sub ? ' has-sub' : '')} onMouseEnter={() => setSubOpen(it.sub ? i : -1)}
         onClick={() => { if (it.disabled || it.sub) return; onClose(); it.onClick(); }}>
-        <span>{it.label}</span>{it.check && <span class="ctx-h">✓</span>}{it.hint && <span class="ctx-h">{it.hint}</span>}{it.sub && <span class="ctx-h">›</span>}
+        <span class="ctx-l">{it.ic && <Ic n={it.ic} s={14} />}{it.label}</span>{it.check && <span class="ctx-h">✓</span>}{it.hint && <span class="ctx-h">{it.hint}</span>}{it.sub && <span class="ctx-h">›</span>}
         {it.sub && subOpen === i && <div class="ctx sub">{it.sub.length ? it.sub.map(x => <div class={'ctx-i' + (x.disabled ? ' off' : '')} onClick={e => { e.stopPropagation(); if (x.disabled) return; onClose(); x.onClick(); }}><span>{x.dot !== undefined && <i class={'dot kb-dot ' + (x.dot ? 'kb-' + x.dot : 'kb-none')} />}{x.label}</span>{x.check && <span class="ctx-h">✓</span>}</div>) : <div class="ctx-i off">{tr("Sin opciones")}</div>}</div>}
       </div>)}
   </div>;
@@ -279,7 +279,7 @@ function WeeklyGoal({ st, rows }) {
   const save = () => { s.weeklyGoal = Math.max(0, +v || 0); st.saveConfig(); setEd(false); };
   return <div class="panel goal"><div class="goal-h"><h4>{tr("Meta semanal")}</h4>{st.can('admin') && !ed && <button class="mini" onClick={() => { setV(goal || 3); setEd(true); }}>{goal ? tr('Cambiar meta') : tr('Poner una meta')}</button>}
       {ed && <span class="lrow0"><input type="number" min="0" style={{ width: '64px' }} value={v} onInput={e => setV(e.target.value)} onKeyDown={e => e.key === 'Enter' && save()} /><span>{tr("videos por semana")}</span><button class="mini primary" onClick={save}>{tr("Guardar")}</button></span>}</div>
-    {goal ? <><div class="goal-big"><b>{cur.n}</b> / {goal} <span class="muted">{tr("publicados esta semana")}</span>{cur.n >= goal && <span class="goal-ok">🎉 {tr("¡Meta cumplida!")}</span>}</div>
+    {goal ? <><div class="goal-big"><b>{cur.n}</b> / {goal} <span class="muted">{tr("publicados esta semana")}</span>{cur.n >= goal && <span class="goal-ok"><Ic n="check" s={14} w={2.4} /> {tr("¡Meta cumplida!")}</span>}</div>
       <div class="goal-bar"><i style={{ width: Math.min(100, 100 * cur.n / goal) + '%' }} class={cur.n >= goal ? 'ok' : ''} /></div>
       <p class="muted sm">{planned ? tr('{n} más programados para esta semana.', { n: planned }) : cur.n < goal ? tr('No hay más videos programados esta semana.') : ''}</p></>
       : <p class="muted">{tr("Ponte una meta de videos por semana y aquí verás tu avance.")}</p>}
@@ -358,14 +358,14 @@ function Settings({ st, onClose, onCol, onAddCol, start }) {
     {sec === 'users' && <div>{c.users.map(u => <div class="ucard"><div class="lrow"><input class="grow" value={u.name} onInput={e => { u.name = e.target.value; }} onBlur={save} /><span class="muted grow">{u.email}</span>
       <select value={u.roleId} onChange={e => { u.roleId = e.target.value; save(); }}>{c.roles.map(r => <option value={r.id}>{r.name}</option>)}</select>
       <button class="mini" onClick={() => setUopen(uopen === u.email ? null : u.email)}>{tr('Ajustes individuales')}{Object.keys(u.overrides || {}).length ? ` (${Object.keys(u.overrides).length})` : ''}</button>
-      {u.email !== c.owner && <button class="icon" title={tr("Quitar")} onClick={() => { c.users = c.users.filter(x => x !== u); save(); }}>✕</button>}</div>
+      {u.email !== c.owner && <button class="icon" title={tr("Quitar")} onClick={() => { c.users = c.users.filter(x => x !== u); save(); }}><Ic n="x" s={14} /></button>}</div>
       {uopen === u.email && <div class="checks one ov">{PERMS.map(([k, l]) => <label>{l}<select value={u.overrides?.[k] === true ? 'y' : u.overrides?.[k] === false ? 'n' : ''} onChange={e => { u.overrides = { ...(u.overrides || {}) }; if (!e.target.value) delete u.overrides[k]; else u.overrides[k] = e.target.value === 'y'; save(); }}><option value="">{tr("Según su rol")}</option><option value="y">{tr("Permitir")}</option><option value="n">{tr("Negar")}</option></select></label>)}</div>}</div>)}
-      <div class="lrow"><input class="grow" placeholder={tr("Nombre")} value={nu.name} onInput={e => setNu({ ...nu, name: e.target.value })} /><input class="grow" placeholder="correo@gmail.com" value={nu.email} onInput={e => setNu({ ...nu, email: e.target.value })} />
+      <div class="lrow"><input class="grow" placeholder={tr("Nombre")} value={nu.name} onInput={e => setNu({ ...nu, name: e.target.value })} /><input class="grow" placeholder={tr("correo@gmail.com")} value={nu.email} onInput={e => setNu({ ...nu, email: e.target.value })} />
         <button class="btn" onClick={() => { const email = nu.email.trim().toLowerCase(); if (!/.+@.+\..+/.test(email) || c.users.some(u => u.email.toLowerCase() === email)) return; c.users.push({ email, name: nu.name.trim() || email, roleId: c.defaultRoleId, overrides: {} }); setNu({ email: '', name: '' }); save(); }}>{tr("Agregar persona")}</button></div>
       <p class="hint">{tr("Cada persona debe tener además acceso al Sheet en Google (editor para quien modifica, lector para visitantes). Los permisos de esta lista se aplican dentro de la app.")}</p></div>}
     {sec === 'tpl' && <div class="two"><div class="side">{c.templates.map((t, i) => <button class={i === tid ? 'on' : ''} onClick={() => setTid(i)}>{t.name}</button>)}<button onClick={() => { c.templates.push({ name: tr('Nueva plantilla'), content: '# Guion\n\n## Idea\n\n## Escenas\n\n- [ ] Intro\n- [ ] Desarrollo\n- [ ] Cierre\n' }); setTid(c.templates.length - 1); save(); }}>{tr("+ Nueva plantilla")}</button></div>
       {tpl ? <div class="grow"><label class="f">{tr("Nombre")}<input value={tpl.name} onInput={e => { tpl.name = e.target.value; }} onBlur={save} /></label><RichEditor key={tid} value={tpl.content} editable onChange={md => { tpl.content = md; save(); }} />
-        <button class="btn danger" onClick={() => { c.templates = c.templates.filter(t => t !== tpl); setTid(0); save(); }}>{tr("Eliminar plantilla")}</button></div> : <p class="muted grow">{tr("Una plantilla es el contenido inicial de la página al crear un elemento.")}</p>}</div>}
+        <button class="btn danger" onClick={() => { c.templates = c.templates.filter(t => t !== tpl); setTid(0); save(); }}>{tr("Eliminar plantilla")}</button></div> : <div class="grow"><Empty ic="grid" title={c.templates.length ? tr("Elige una plantilla") : tr("Aún no hay plantillas")} text={tr("Una plantilla es el contenido inicial de la página al crear un elemento.")} /></div>}</div>}
     {sec === 'auto' && <AutomationList st={st} />}
     {sec === 'look' && <Appearance value={st.ui.appear()} onChange={st.ui.setAppear} />}
     {sec === 'hist' && <HistSection st={st} />}
@@ -493,7 +493,7 @@ function Workspace({ st, name, onHome }) {
       ...(() => { if (!col || col === s.titleCol || ['url', 'image'].includes(ct)) return []; const raw = String(r.v[col] ?? ''), v = ct === 'multi' ? splitMulti(raw)[0] || '' : ct === 'checkbox' ? (raw === 'true' ? 'true' : '') : raw; if (!v) return [];
         const shown = ct === 'checkbox' ? col + ' ✓' : v.length > 28 ? v.slice(0, 28) + '…' : v, pinnedQ = (prefs.quick || []).some(x => x.col === col && x.val === v);
         return ['sep', { label: tr('Filtrar por «{v}»', { v: shown }), onClick: () => setFilters([...filters.filter(f => !(f.col === col && f.val === v)), { col, op: 'is', val: v }]) },
-          pinnedQ ? { label: tr('Quitar «{v}» de filtros rápidos', { v: shown }), onClick: () => unpinQuick(col, v) } : { label: tr('📌 Fijar «{v}» como filtro rápido', { v: shown }), onClick: () => pinQuick(col, v) }]; })(),
+          pinnedQ ? { label: tr('Quitar «{v}» de filtros rápidos', { v: shown }), onClick: () => unpinQuick(col, v) } : { ic: 'pin', label: tr('Fijar «{v}» como filtro rápido', { v: shown }), onClick: () => pinQuick(col, v) }]; })(),
       'sep',
       ok && s.groupCol && T.header.includes(s.groupCol) && (st.canEditCol(s.groupCol) || st.can('moveCards')) && { label: tr('Cambiar ') + s.groupCol.toLowerCase(), sub: sel_(s.groupCol, r) },
       ...pcols.filter(c => ok && st.canEditCol(c)).map(c => ({ label: tr('Asignar ') + c.toLowerCase(), sub: [...optionsOf(st, c).map(o => ({ label: o.v, check: r.v[c] === o.v, onClick: () => st.setCell(r.tab, r.id, c, o.v) })), ...(r.v[c] ? [{ label: tr('Quitar asignación'), onClick: () => st.setCell(r.tab, r.id, c, '') }] : [])] })),
@@ -545,7 +545,7 @@ function Workspace({ st, name, onHome }) {
   const [askFolder, setAskFolder] = [folderAsk, setFolderAsk];
   const gfolded = new Set(prefs.gfolded || []);
   const toggleFold = k => k.startsWith('g|') ? setPrefs({ gfolded: gfolded.has(k) ? [...gfolded].filter(x => x !== k) : [...gfolded, k] }) : setPrefs({ folded: folded.has(k) ? [...folded].filter(x => x !== k) : [...folded, k] });
-  const folderItems = (tab, ids, curName) => { const fs = st.foldersOf(tab); return [...fs.map(f => ({ label: '📁 ' + f.name, check: curName === f.name, onClick: () => { if (curName !== f.name) st.moveToFolder(tab, ids, f.name); setSel(new Set()); } })), fs.length && 'sep', { label: tr('Nueva carpeta…'), onClick: () => setAskFolder({ tab, ids, name: '' }) }, curName !== undefined && curName !== null && curName !== '' && { label: tr('Sacar de la carpeta'), onClick: () => { st.moveToFolder(tab, ids, ''); setSel(new Set()); } }].filter(Boolean); };
+  const folderItems = (tab, ids, curName) => { const fs = st.foldersOf(tab); return [...fs.map(f => ({ ic: 'folder', label: f.name, check: curName === f.name, onClick: () => { if (curName !== f.name) st.moveToFolder(tab, ids, f.name); setSel(new Set()); } })), fs.length && 'sep', { label: tr('Nueva carpeta…'), onClick: () => setAskFolder({ tab, ids, name: '' }) }, curName !== undefined && curName !== null && curName !== '' && { label: tr('Sacar de la carpeta'), onClick: () => { st.moveToFolder(tab, ids, ''); setSel(new Set()); } }].filter(Boolean); };
   const pinned = new Set(prefs.pinFolders || []);
   const folderOps = { toggle: toggleFold, can: st.can('moveCards'), isPinned: k => pinned.has(k), newFolder: view === 'table' ? () => setAskFolder({ tab: cur === '*' ? tabs[0] : cur, ids: [], name: '' }) : null,
     drop: (h, from, id) => { if (h.group) { if (!st.canEditCol(h.col)) return; const r = st.allRows().find(x => x.id === id); if (r && S.tabs[r.tab].header.includes(h.col)) st.setCell(r.tab, id, h.col, st.type(h.col) === 'checkbox' ? h.name === '✓' : h.name, { move: h.col === s.groupCol }); return; } if (from !== h.tab) { st.toast(tr('Solo puedes meter en esta carpeta filas de la pestaña «{t}».', { t: h.tab }), 'error'); return; } st.moveToFolder(h.tab, [id], h.name); },
@@ -557,7 +557,7 @@ function Workspace({ st, name, onHome }) {
         { label: tr('Colapsar todas'), onClick: () => setPrefs({ gfolded: [...new Set([...gfolded, ...keys])] }) },
         { label: tr('Expandir todas'), onClick: () => setPrefs({ gfolded: [...gfolded].filter(k => !keys.includes(k)) }) }, 'sep',
         { label: tr('Quitar agrupación'), onClick: () => setPrefs({ groupBy: '' }) }] }); return; }
-      setMenu({ x: e.clientX, y: e.clientY, title: '📁 ' + h.name, items: [
+      setMenu({ x: e.clientX, y: e.clientY, title: h.name, items: [
         { label: h.closed ? tr('Expandir') : tr('Colapsar'), onClick: () => toggleFold(h.key) },
         { label: tr('Fijar nombre al desplazar'), hint: tr('solo esta carpeta'), check: pinned.has(h.key), onClick: () => setPrefs({ pinFolders: pinned.has(h.key) ? [...pinned].filter(k => k !== h.key) : [...pinned, h.key] }) },
         'sep',
@@ -624,7 +624,7 @@ function Workspace({ st, name, onHome }) {
   const doDeleteTab = async t => { const n = S.tabs[t].rows.length; if (!confirm(tr('¿Eliminar la pestaña «{t}» y sus {n} elementos?\n\nNo se borra nada de tu Google Sheet: la pestaña se oculta y puedes restaurarla cuando quieras desde Ajustes → Historial (o con Ctrl+Z).', { t, n }))) return; if (tab === t) setTab('*'); await st.deleteTab(t); };
   const doRename = async (old, v) => { v = v.trim(); if (!v || v === old) { setRenTab(null); return true; } const e = st.tabNameError(v, old); if (e) { st.toast(e, 'error'); return false; } setRenTab(null); const n = await st.renameTab(old, v); if (n && n !== old) { if (tab === old) setTab(n); setViews(views.map(x => x.tab === old ? { ...x, tab: n } : x)); } return true; };
   return <div class="app"><aside class="sidebar"><div class="proj click" onClick={onHome} title={tr("Cambiar de proyecto")}><span class="logo-row"><img src="icon.png" alt="" class="logo" /><span class="sm muted">Kuadro</span></span><b>{S.title || name}</b><span class="muted sm">{tr("Cambiar de proyecto")}</span></div>
-    <button class={'nav' + (inbox ? ' on' : '')} onClick={() => setInbox(!inbox)}>🔔 {tr('Bandeja')}{unread > 0 ? <span class="badge">{unread}</span> : <span />}</button>
+    <button class={'nav inbox-nav' + (inbox ? ' on' : '')} onClick={() => setInbox(!inbox)}><Ic n="inbox" s={15} cls="nav-ic" />{tr('Bandeja')}{unread > 0 ? <span class="badge">{unread}</span> : <span />}</button>
     <div class="nav-h">{tr("Pestañas")}</div><button class={'nav' + (cur === '*' ? ' on' : '')} onClick={() => setTab('*')}>{tr("Todos")}<span>{st.allRows().length}</span></button>
     {tabs.map(t => renTab && renTab.tab === t ? <TabNameInput key={'r' + t} initial={t} onCancel={() => setRenTab(null)} onSave={v => doRename(t, v)} />
       : <button class={'nav' + (cur === t ? ' on' : '') + (dropTab === t ? ' drop' : '')} onClick={() => setTab(t)} onDblClick={() => st.can('manageTabs') && setRenTab({ tab: t })}
@@ -648,8 +648,8 @@ function Workspace({ st, name, onHome }) {
       {(st.can('addRows') || st.can('addCards')) && <button class="btn primary" onClick={() => onNew({}, !st.can('addRows'))}>{tr("+ Nuevo")}</button>}</div>
       {fpop && <Pop anchor={fref.current} onClose={() => setFpop(false)} width={460}><div class="filters">{filters.map((f, i) => { const up = p => setFilters(filters.map((x, j) => j === i ? { ...x, ...p } : x)); const o = optionsOf(st, f.col);
         return <div class="frow"><select value={f.col} onChange={e => up({ col: e.target.value, val: '' })}>{baseCols.map(c => <option>{c}</option>)}</select><select value={f.op} onChange={e => up({ op: e.target.value })}>{Object.entries(OPS).map(([k, l]) => <option value={k}>{l}</option>)}</select>
-          {(f.op === 'is' || f.op === 'has') && (o.length && f.op === 'is' ? <select value={f.val} onChange={e => up({ val: e.target.value })}><option value="">(cualquiera)</option>{o.map(x => <option>{x.v}</option>)}</select> : <input value={f.val} placeholder="valor" onInput={e => up({ val: e.target.value })} />)}
-          <button class="icon" onClick={() => setFilters(filters.filter((_, j) => j !== i))}>✕</button></div>; })}
+          {(f.op === 'is' || f.op === 'has') && (o.length && f.op === 'is' ? <select value={f.val} onChange={e => up({ val: e.target.value })}><option value="">(cualquiera)</option>{o.map(x => <option>{x.v}</option>)}</select> : <input value={f.val} placeholder={tr("valor")} onInput={e => up({ val: e.target.value })} />)}
+          <button class="icon" onClick={() => setFilters(filters.filter((_, j) => j !== i))}><Ic n="x" s={14} /></button></div>; })}
         <button class="btn" onClick={() => setFilters([...filters, { col: s.groupCol || baseCols[0], op: 'is', val: '' }])}>{tr("+ Agregar filtro")}</button></div></Pop>}
       {colsPop && view === 'table' && <Pop anchor={cref.current} onClose={() => setColsPop(false)} width={300}><div class="ctx-t">{tr("Columnas visibles en esta vista")}</div>
         {ordered.map(c => <label class="pop-i chkrow"><input type="checkbox" disabled={c === s.titleCol} checked={!(prefs.hidden || []).includes(c)} onChange={e => setPrefs({ hidden: e.target.checked ? (prefs.hidden || []).filter(x => x !== c) : [...(prefs.hidden || []), c] })} /><span class="tyi">{ICON[st.type(c)]}</span>{c}</label>)}
@@ -690,7 +690,7 @@ function Workspace({ st, name, onHome }) {
       {tplAsk && <Modal title={tr("Nuevo elemento")} onClose={() => setTplAsk(null)}><div class="lrow click" onClick={() => { create(tplAsk.values, tplAsk.card); setTplAsk(null); }}><b>{tr("En blanco")}</b></div>{S.config.templates.map(t => <div class="lrow click" onClick={() => { create(tplAsk.values, tplAsk.card, t); setTplAsk(null); }}><b>{t.name}</b><span class="muted">{tr("Plantilla")}</span></div>)}</Modal>}
     {pal && <div class="overlay top" onMouseDown={e => { if (e.target === e.currentTarget) setPal(false); }}><div class="palette"><input ref={af} placeholder={tr("Busca un video o escribe una acción (nueva fila, carpeta, agrupar…)")} value={pq} onInput={e => { setPq(e.target.value); setPhi(0); }}
       onKeyDown={e => { if (e.key === 'Escape') setPal(false); if (e.key === 'ArrowDown') { e.preventDefault(); setPhi(Math.min(phi + 1, pAll.length - 1)); } if (e.key === 'ArrowUp') { e.preventDefault(); setPhi(Math.max(phi - 1, 0)); } if (e.key === 'Enter' && pAll[phi]) runP(pAll[phi]); }} />
-      {pAll.map((x, i) => x.cmd ? <div class={'pop-i pal-i pal-cmd' + (i === phi ? ' hi' : '')} onMouseEnter={() => setPhi(i)} onClick={() => runP(x)}><span class="pal-ic">›</span><div class="grow">{x.cmd.label}</div>{x.cmd.hint && <span class="muted sm">{x.cmd.hint}</span>}</div> : <div class={'pop-i pal-i' + (i === phi ? ' hi' : '')} onMouseEnter={() => setPhi(i)} onClick={() => runP(x)}><div class="grow"><div>{icons[x.row.id] && <span class="ticon">{icons[x.row.id]}</span>}{x.row.v[s.titleCol] || tr('Sin título')}</div>{x.snippet && <div class="muted sm">…{x.snippet}…</div>}</div><span class="muted sm">{x.row.tab}{s.groupCol && x.row.v[s.groupCol] ? ' · ' + x.row.v[s.groupCol] : ''}</span></div>)}
+      {pAll.map((x, i) => x.cmd ? <div class={'pop-i pal-i pal-cmd' + (i === phi ? ' hi' : '')} onMouseEnter={() => setPhi(i)} onClick={() => runP(x)}><span class="pal-ic"><Ic n="bolt" s={13} /></span><div class="grow">{x.cmd.label}</div>{x.cmd.hint && <span class="muted sm">{x.cmd.hint}</span>}</div> : <div class={'pop-i pal-i' + (i === phi ? ' hi' : '')} onMouseEnter={() => setPhi(i)} onClick={() => runP(x)}><div class="grow"><div>{icons[x.row.id] && <span class="ticon">{icons[x.row.id]}</span>}{x.row.v[s.titleCol] || tr('Sin título')}</div>{x.snippet && <div class="muted sm">…{x.snippet}…</div>}</div><span class="muted sm">{x.row.tab}{s.groupCol && x.row.v[s.groupCol] ? ' · ' + x.row.v[s.groupCol] : ''}</span></div>)}
       {pq.trim() && !pAll.length && <div class="pop-empty">{tr("Sin resultados.")}</div>}</div></div>}
     {S.conflicts[0] && <Modal title={tr("Cambio en conflicto")} onClose={() => st.resolveConflict(S.conflicts[0], false)}><p>{tr('Alguien cambió «{c}» de «{x}» en el Sheet mientras lo editabas.', { c: S.conflicts[0].col, x: S.conflicts[0].title })}</p>
       <p>{tr("En el Sheet:")}{' '}<b>{String(S.conflicts[0].theirs) || tr('(vacío)')}</b><br />{tr("Tu cambio:")}{' '}<b>{String(S.conflicts[0].mine) || tr('(vacío)')}</b></p>
@@ -705,22 +705,33 @@ function Home({ user, setUser, projects, setProjects, onOpen }) {
   useEffect(() => { native && native.creds().then(c => { setHas(c.has); setCreds({ clientId: c.clientId || '', clientSecret: '' }); }); }, []);
   const login = async () => { setErr(''); setBusy(true); try { setUser(await native.login(has && !creds.clientSecret ? null : creds)); setHas(true); } catch (e) { setErr(String(e.message || e).replace(/^Error invoking remote method '[^']+': (Error: )?/, '')); } setBusy(false); };
   const add = () => { const id = sheetIdOf(url); if (!id) { setErr(tr('Ese enlace no parece de Google Sheets.')); return; } if (!projects.some(p => p.sheetId === id)) setProjects([...projects, { id: newId(), sheetId: id, name: tr('Proyecto') + ' ' + (projects.length + 1) }]); setUrl(''); setErr(''); };
-  return <div class="home"><div class="home-top"><LangPicker compact /></div><div class="brand"><img src="icon.png" alt="" /><h1>Kuadro</h1></div><p class="muted">{tr("Tablas, kanban, galería, calendario y páginas sobre tus Google Sheets.")}</p>
+  const hr = new Date().getHours(), hello = hr < 12 ? tr('Buenos días') : hr < 19 ? tr('Buenas tardes') : tr('Buenas noches'), first = user && user.name ? user.name.split(' ')[0] : '';
+  const openP = p => { setProjects(projects.map(x => x === p ? { ...x, opened: new Date().toISOString() } : x)); onOpen(p.id); };
+  const sorted = [...projects].sort((x, y) => String(y.opened || '').localeCompare(String(x.opened || '')));
+  const urlRef = useRef(null);
+  return <div class="home"><div class="home-in">
+    <div class="home-top"><div class="brand"><img src="icon.png" alt="" /><b>Kuadro</b></div><LangPicker compact /></div>
+    <h1 class="home-h">{user ? hello + (first ? ', ' + first : '') : tr('Te damos la bienvenida')}</h1><p class="muted home-sub">{tr("Tablas, kanban, galería, calendario y páginas sobre tus Google Sheets.")}</p>
     {native && !user && <div class="box"><h3>{tr("Conecta tu cuenta de Google")}</h3><p class="hint">{tr("La primera vez necesitas una credencial gratuita de Google Cloud (tipo «App de escritorio»).")}{' '}<a href="#" onClick={e => { e.preventDefault(); setHelp(true); }}>{tr("Cómo obtenerla")}</a></p>
       <label class="f">{tr("ID de cliente")}<input value={creds.clientId} onInput={e => setCreds({ ...creds, clientId: e.target.value.trim() })} placeholder="…apps.googleusercontent.com" /></label>
       <label class="f">{tr("Secreto de cliente")}<input type="password" value={creds.clientSecret} onInput={e => setCreds({ ...creds, clientSecret: e.target.value.trim() })} placeholder={has ? '(guardado)' : 'GOCSPX-…'} /></label>
       <button class="btn primary" disabled={busy || !creds.clientId || (!has && !creds.clientSecret)} onClick={login}>{busy ? tr('Esperando a Google en tu navegador…') : tr('Iniciar sesión con Google')}</button></div>}
-    {user && <div class="box"><h3>{tr("Tus proyectos")}</h3><p class="hint">{tr('Sesión:')} {user.name} ({user.email}) · <a href="#" onClick={e => { e.preventDefault(); native.logout().then(() => setUser(null)); }}>{tr("Cerrar sesión")}</a></p>
-      {projects.map(p => <div class="lrow"><b class="grow click" onClick={() => onOpen(p.id)}>{p.name}</b><span class="muted sm">{p.sheetId.slice(0, 10)}…</span><button class="btn primary" onClick={() => onOpen(p.id)}>{tr("Abrir")}</button><button class="icon" title={tr("Quitar de la lista (no borra el Sheet)")} onClick={() => setProjects(projects.filter(x => x !== p))}>✕</button></div>)}
-      {!projects.length && <p class="muted">{tr("Aún no agregas ningún Sheet.")}</p>}
-      <div class="lrow"><input class="grow" placeholder={tr("Pega el enlace de un Google Sheet…")} value={url} onInput={e => setUrl(e.target.value)} onKeyDown={e => e.key === 'Enter' && add()} /><button class="btn" onClick={add}>{tr("Agregar proyecto")}</button></div></div>}
+    <div class="home-acts">
+      {user && <button class="home-act prim" onClick={() => urlRef.current && urlRef.current.focus()}><span class="ha-ic"><Ic n="plus" s={18} /></span><b>{tr("Conectar un Google Sheet")}</b><span>{tr("Pega su enlace abajo; tus datos se quedan en tu Sheet.")}</span></button>}
+      <button class="home-act" onClick={() => onOpen('demo')}><span class="ha-ic"><Ic n="grid" s={18} /></span><b>{tr("Probar la demostración")}</b><span>{tr("Un plan de contenido de ejemplo, guardado solo en esta computadora.")}</span></button>
+    </div>
+    {user && <><div class="home-lab">{tr("Tus proyectos")}</div>
+      <div class="plist">{sorted.map(p => <div class="pl-i" onClick={() => openP(p)}><span class="pl-av">{(p.name || '?').trim().charAt(0).toUpperCase()}</span><div class="grow"><b>{p.name}</b><span class="muted sm">{p.opened ? tr('Abierto {t}', { t: ago(p.opened) }) : tr('Sin abrir todavía')}</span></div>
+        <button class="mini ghost pl-x" title={tr("Quitar de la lista (no borra el Sheet)")} onClick={e => { e.stopPropagation(); setProjects(projects.filter(x => x !== p)); }}><Ic n="x" s={13} /></button><button class="mini" onClick={e => { e.stopPropagation(); openP(p); }}>{tr("Abrir")}</button></div>)}
+        {!projects.length && <div class="pl-empty"><Ic n="folder" s={22} w={1.6} /><span>{tr("Aún no agregas ningún Sheet. Pega su enlace aquí abajo.")}</span></div>}
+        <div class="pl-add"><input ref={urlRef} class="grow" placeholder={tr("Pega el enlace de un Google Sheet…")} value={url} onInput={e => setUrl(e.target.value)} onKeyDown={e => e.key === 'Enter' && add()} /><button class="btn primary" disabled={!url.trim()} onClick={add}>{tr("Agregar proyecto")}</button></div></div></>}
     {err && <div class="warn">{err}</div>}
-    <div class="box"><h3>{tr("Proyecto de demostración")}</h3><p class="hint">{tr("Datos de ejemplo guardados solo en esta computadora; no toca ningún Sheet.")}</p><button class="btn" onClick={() => onOpen('demo')}>{tr("Abrir demostración")}</button> <button class="btn" onClick={() => { localStorage.removeItem('demo-data-' + LANG); }}>{tr("Restablecer datos de demo")}</button></div>
+    <div class="home-foot">{user && <span>{user.email} · <a href="#" onClick={e => { e.preventDefault(); native.logout().then(() => setUser(null)); }}>{tr("Cerrar sesión")}</a></span>}<span class="sp" /><a href="#" onClick={e => { e.preventDefault(); if (confirm(tr('¿Restablecer los datos de la demostración?'))) localStorage.removeItem('demo-data-' + LANG); }}>{tr("Restablecer datos de demo")}</a></div>
     {native && native.updateState && <HomeVersion />}
     {help && <Modal title={tr("Credencial de Google (una sola vez)")} onClose={() => setHelp(false)}><ol class="steps"><li>{tr("Entra a console.cloud.google.com y crea un proyecto.")}</li><li>{tr("En «APIs y servicios → Biblioteca» habilita")}{' '}<b>{tr("Google Sheets API")}</b> y <b>{tr("Google Drive API")}</b>.</li>
       <li>{tr("En «Pantalla de consentimiento de OAuth» elige tipo Externo, pon un nombre y tu correo, y luego publica la app («En producción») para que las sesiones no caduquen cada semana.")}</li>
       <li>{tr("En «Credenciales → Crear credenciales → ID de cliente de OAuth» elige")}{' '}<b>{tr("App de escritorio")}</b>.</li><li>{tr("Copia el ID de cliente y el secreto aquí. Tu equipo usa los mismos dos datos.")}</li></ol>
-      <p class="hint">{tr("Google mostrará un aviso de «app no verificada» al iniciar sesión; se continúa desde «Configuración avanzada».")}</p></Modal>}</div>;
+      <p class="hint">{tr("Google mostrará un aviso de «app no verificada» al iniciar sesión; se continúa desde «Configuración avanzada».")}</p></Modal>}</div></div>;
 }
 
 function App() {

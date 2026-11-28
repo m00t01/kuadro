@@ -14,10 +14,10 @@ const step = async (name, fn) => { try { await fn(); } catch (e) { out.push('EXC
 await p.goto('file:///home/claude/app/dist/index.html'); await p.evaluate(() => { localStorage.clear(); localStorage.setItem('kuadro-clickopen', '0'); }); await p.reload(); await wait(400);
 
 await step('home', async () => {
-  ok('inicio en inglés por defecto', await p.evaluate(() => document.body.innerText.includes('Open demo') && document.body.innerText.includes('Tables, kanban')));
+  ok('inicio en inglés por defecto', await p.evaluate(() => document.body.innerText.includes('Try the demo') && document.body.innerText.includes('Tables, kanban')));
   await click('.seg button', 'Español'); await wait(700); ok('cambiar a español', await p.evaluate(() => document.body.innerText.includes('Abrir demostración')));
-  await shot('lang-es'); await click('.seg button', 'English'); await wait(700); ok('volver a inglés', await p.evaluate(() => document.body.innerText.includes('Open demo')));
-  await click('button', 'Open demo'); await wait(1600);
+  await shot('lang-es'); await click('.seg button', 'English'); await wait(700); ok('volver a inglés', await p.evaluate(() => document.body.innerText.includes('Try the demo')));
+  await click('button', 'Try the demo'); await wait(1600);
 });
 const TAB = 'Main channel';
 await step('tabla-teclado', async () => {
@@ -137,7 +137,7 @@ await step('bandeja', async () => {
   await p.evaluate(() => { const d = JSON.parse(localStorage.getItem('demo-data-en')); const h = d.sheets.find(s => s.title === '_app_history'); const main = d.sheets.find(s => s.title === 'Main channel'); h.rows.push([new Date().toISOString(), 'ana@example.com', 'Main channel', main.rows[3][17], 'Writer', '', 'You', 'edit', main.rows[3][2]]); localStorage.setItem('demo-data-en', JSON.stringify(d)); });
   await p.reload(); await wait(1600); await p.evaluate(() => document.querySelector('.status .icon').click()); await wait(800);
   ok('insignia de no leídos', await p.evaluate(() => !!document.querySelector('.nav .badge')));
-  await click('.nav', '🔔 Inbox'); await wait(300); ok('bandeja muestra asignación', await p.evaluate(() => document.querySelector('.inbox').textContent.includes('assigned you as writer'))); await shot('inbox');
+  await click('.nav', 'Inbox'); await wait(300); ok('bandeja muestra asignación', await p.evaluate(() => document.querySelector('.inbox').textContent.includes('assigned you as writer'))); await shot('inbox');
   await click('.ib-h .icon', '✕'); await wait(200);
 });
 await step('tema-claro', async () => {

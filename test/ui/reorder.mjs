@@ -9,7 +9,7 @@ const sheetTitles = () => p.evaluate(() => { const s = JSON.parse(localStorage.g
 // Drag the row at display index `from` and drop it before/after the row at display index `to`.
 const drag = (from, to, after) => p.evaluate((from, to, after) => { const trs = [...document.querySelectorAll('.grid tbody tr')]; const src = trs[from].querySelector('td.num'), dst = trs[to]; const dt = new DataTransfer(); src.dispatchEvent(new DragEvent('dragstart', { bubbles: true, dataTransfer: dt })); const r = dst.getBoundingClientRect(), y = after ? r.bottom - 3 : r.top + 3; dst.querySelector('td.title').dispatchEvent(new DragEvent('dragover', { bubbles: true, cancelable: true, dataTransfer: dt, clientY: y })); return new Promise(res => setTimeout(() => { const ind = dst.className; dst.querySelector('td.title').dispatchEvent(new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer: dt, clientY: y })); src.dispatchEvent(new DragEvent('dragend', { bubbles: true, dataTransfer: dt })); res(ind); }, 60)); }, from, to, after);
 await p.goto('file:///home/claude/kuadro/dist/index.html'); await p.evaluate(() => { localStorage.clear(); localStorage.setItem('kuadro-clickopen', '0'); }); await p.reload(); await wait(400);
-await p.evaluate(() => [...document.querySelectorAll('button')].find(b => b.textContent.startsWith('Open demo')).click()); await wait(1800);
+await p.evaluate(() => [...document.querySelectorAll('button')].find(b => b.textContent.startsWith('Try the demo')).click()); await wait(1800);
 await p.evaluate(() => [...document.querySelectorAll('.sidebar .nav')].find(b => b.textContent.startsWith('Main channel')).click()); await wait(400);
 const t0 = await titles();
 const ind = await drag(11, 2, false); await wait(1200);

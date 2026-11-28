@@ -8,7 +8,7 @@ const click = (sel, text) => p.evaluate((s, t) => { const e = [...document.query
 const setVal = (sel, v) => p.evaluate((s, v) => { const i = document.querySelector(s); const proto = i.tagName === 'TEXTAREA' ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype; Object.getOwnPropertyDescriptor(proto, 'value').set.call(i, v); i.dispatchEvent(new Event('input', { bubbles: true })); }, sel, v);
 const sheetTitles = () => p.evaluate(() => { const s = JSON.parse(localStorage.getItem('demo-data-en')).sheets.find(x => x.title === 'Main channel'); const h = s.rows[0]; return s.rows.slice(1).map(r => r[h.indexOf('Video title')]); });
 await p.goto('file:///home/claude/kuadro/dist/index.html'); await p.evaluate(() => { localStorage.clear(); localStorage.setItem('kuadro-clickopen', '0'); }); await p.reload(); await wait(400);
-await click('button', 'Open demo'); await wait(1800);
+await click('button', 'Try the demo'); await wait(1800);
 // Settings layout.
 await click('.sidebar .nav', 'Settings'); await wait(300);
 ok('side menu with icons and groups', await p.evaluate(() => document.querySelectorAll('.set nav button .si').length >= 9 && document.querySelectorAll('.set nav hr').length >= 3));
@@ -25,7 +25,7 @@ await setVal('.set-q', ''); await wait(150);
 await p.evaluate(() => [...document.querySelectorAll('.set nav button')].find(b => b.textContent.startsWith('Automations')).click()); await wait(200);
 await (await p.$('.modal.settings')).screenshot({ path: '/tmp/shots/settings.png' });
 // Template search.
-await click('button', '✨ Add from template'); await wait(300);
+await click('button', 'Add from template'); await wait(300);
 await setVal('.tpl-q', 'short'); await wait(150);
 ok('template search', await p.evaluate(() => { const n = [...document.querySelectorAll('.tpl-i b')].map(b => b.textContent); return n.length >= 1 && n.every(x => /short/i.test(x) || true) && n.length < 6; }));
 await p.keyboard.press('Escape'); await wait(150); await p.keyboard.press('Escape'); await wait(200);

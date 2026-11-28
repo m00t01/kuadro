@@ -9,7 +9,7 @@ const titles = () => p.evaluate(() => [...document.querySelectorAll('.grid tbody
 const sheet = () => p.evaluate(() => { const s = JSON.parse(localStorage.getItem('demo-data-en')).sheets.find(x => x.title === 'Main channel'); return { h: s.rows[0], rows: s.rows, groups: s.rowGroups || [] }; });
 const rightClickItem = async (pt, ...path) => { await p.mouse.click(pt.x, pt.y, { button: 'right' }); await wait(200); for (let i = 0; i < path.length; i++) { const last = i === path.length - 1; await p.evaluate((t, last, sub) => { const it = [...document.querySelectorAll(sub ? '.ctx.sub .ctx-i' : '.ctx > .ctx-i')].find(x => x.textContent.startsWith(t)); if (!it) throw new Error('no item ' + t + ' in: ' + [...document.querySelectorAll('.ctx .ctx-i, .ctx .ctx-t')].map(x => x.textContent).join(' / ')); if (last) it.click(); else it.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true })); }, path[i], last, i > 0); await wait(150); } };
 await p.goto('file:///home/claude/kuadro/dist/index.html'); await p.evaluate(() => { localStorage.clear(); localStorage.setItem('kuadro-clickopen', '0'); }); await p.reload(); await wait(400);
-await p.evaluate(() => [...document.querySelectorAll('button')].find(b => b.textContent.startsWith('Open demo')).click()); await wait(1800);
+await p.evaluate(() => [...document.querySelectorAll('button')].find(b => b.textContent.startsWith('Try the demo')).click()); await wait(1800);
 await p.evaluate(() => [...document.querySelectorAll('.sidebar .nav')].find(b => b.textContent.startsWith('Main channel')).click()); await wait(400);
 const t0 = await titles();
 // Select rows 2-3 by dragging, then right-click → Move to folder → New folder…
@@ -22,7 +22,7 @@ ok('folder header appears where its rows were', t[2] === '[On hold]' && t[3] ===
 ok('bracket on folder rows', await p.evaluate(() => document.querySelectorAll('.grid td.num.inf').length === 2 && document.querySelectorAll('.grid td.num.inf-last').length === 1));
 // Far row (index 20 in original) → goes to the end of the folder.
 const farTitle = t0[20]; const fi = t.indexOf(farTitle); const fpt = await p.evaluate(i => { const tr = [...document.querySelectorAll('.grid tbody tr')][i]; tr.scrollIntoView({ block: 'center' }); const b = tr.querySelector('td.title').getBoundingClientRect(); return { x: b.x + 80, y: b.y + b.height / 2 }; }, fi);
-await p.mouse.click(fpt.x, fpt.y); await wait(100); await rightClickItem(fpt, 'Move to folder', '📁 On hold'); await wait(1500);
+await p.mouse.click(fpt.x, fpt.y); await wait(100); await rightClickItem(fpt, 'Move to folder', 'On hold'); await wait(1500);
 await p.evaluate(() => document.querySelector('.body').scrollTo(0, 0)); t = await titles(); ok('far row moved to the end of the folder', t[2] === '[On hold]' && t[5] === farTitle && t[6] === t0[4]);
 const sh = await sheet(); const ti = sh.h.indexOf('Video title');
 ok('rows physically together in the Sheet', sh.rows[3][ti] === t0[2] && sh.rows[4][ti] === t0[3] && sh.rows[5][ti] === farTitle);

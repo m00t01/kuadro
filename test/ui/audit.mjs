@@ -24,13 +24,13 @@ async function run(lang, theme, width) {
   };
   const click = async (sel, text) => p.evaluate((s, t) => { const e = [...document.querySelectorAll(s)].find(x => x.textContent.trim().startsWith(t)); if (e) { e.click(); return true; } return false; }, sel, text);
   await scan('home'); if (width === 1400) await p.screenshot({ path: `/tmp/audit/${tag}-home.png` });
-  await click('button', lang === 'en' ? 'Open demo' : 'Abrir demo'); await wait(2000);
+  await click('button', lang === 'en' ? 'Try the demo' : 'Probar la demo'); await wait(2000);
   const views = lang === 'en' ? ['Table', 'Kanban', 'Gallery', 'Calendar', 'Dashboard'] : ['Tabla', 'Kanban', 'Galería', 'Calendario', 'Panel'];
   for (const v of views) { await click('.views button, .seg button', v); await wait(500); await scan('view ' + v); if (width === 1400) await p.screenshot({ path: `/tmp/audit/${tag}-${v}.png` }); }
   await click('.views button, .seg button', views[0]); await wait(300);
   await p.evaluate(() => document.querySelector('.grid tbody tr .openbtn')?.click()); await wait(600); await scan('page'); if (width === 1400) await p.screenshot({ path: `/tmp/audit/${tag}-page.png` });
   await p.keyboard.press('Escape'); await wait(200); await p.keyboard.press('Escape'); await wait(300);
-  await click('.sidebar .nav', '🔔'); await wait(300); await scan('inbox'); if (width === 1400) await p.screenshot({ path: `/tmp/audit/${tag}-inbox.png` }); await p.keyboard.press('Escape'); await wait(200);
+  await p.evaluate(() => document.querySelector('.sidebar .nav.inbox-nav, .sidebar .nav')?.click()); await wait(300); await scan('inbox'); if (width === 1400) await p.screenshot({ path: `/tmp/audit/${tag}-inbox.png` }); await p.keyboard.press('Escape'); await wait(200);
   await p.evaluate(() => document.querySelectorAll('.inbox .icon').forEach(x => x.click())); await wait(200);
   await p.keyboard.down('Control'); await p.keyboard.press('k'); await p.keyboard.up('Control'); await wait(300); await scan('palette'); if (width === 1400) await p.screenshot({ path: `/tmp/audit/${tag}-palette.png` }); await p.keyboard.press('Escape'); await wait(200);
   await click('.sidebar .nav', lang === 'en' ? 'Settings' : 'Ajustes'); await wait(300);
@@ -39,5 +39,5 @@ async function run(lang, theme, width) {
   if (errs.length) report.push(`[${tag}] ERRORS: ${[...new Set(errs)].join(' || ')}`);
   await p.close();
 }
-for (const lang of ['en', 'es']) for (const theme of ['dark', 'light']) for (const width of [1400, 1000]) { if (theme === 'light' && width === 1000) continue; await run(lang, theme, width); }
+const QUICK = process.env.QUICK; for (const lang of QUICK ? ['en'] : ['en', 'es']) for (const theme of ['dark', 'light']) for (const width of QUICK ? [1400] : [1400, 1000]) { if (theme === 'light' && width === 1000) continue; await run(lang, theme, width); }
 console.log(report.length ? report.join('\n') : 'no issues'); await b.close();

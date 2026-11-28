@@ -6,9 +6,9 @@ const errs = []; p.on('pageerror', e => errs.push(e.message)); p.on('dialog', d 
 const wait = ms => new Promise(r => setTimeout(r, ms)), out = [], ok = (n, v) => out.push((v ? 'ok   ' : 'FAIL ') + n);
 const click = (sel, text) => p.evaluate((s, t) => { const e = [...document.querySelectorAll(s)].find(x => x.textContent.trim().startsWith(t)); if (!e) throw new Error('no ' + t); e.click(); }, sel, text);
 await p.goto('file:///home/claude/kuadro/dist/index.html'); await p.evaluate(() => { localStorage.clear(); localStorage.setItem('kuadro-clickopen', '0'); }); await p.reload(); await wait(400);
-await click('button', 'Open demo'); await wait(1800);
+await click('button', 'Try the demo'); await wait(1800);
 await click('.sidebar .nav', 'Settings'); await wait(300); await click('.set nav button', 'Automations'); await wait(200);
-await click('button', '✨ Add from template'); await wait(300);
+await click('button', 'Add from template'); await wait(300);
 const names = await p.evaluate(() => [...document.querySelectorAll('.tpl-i b')].map(b => b.textContent));
 ok('template gallery has creator templates (' + names.length + ')', names.length >= 8);
 await p.screenshot({ path: '/tmp/shots/tpl-gallery.png', captureBeyondViewport: false });

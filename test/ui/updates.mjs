@@ -26,7 +26,7 @@ await p.evaluate(() => [...document.querySelectorAll('.upd-banner button')][0].c
 ok('restart calls install', await p.evaluate(() => __installed === 1));
 await p.evaluate(() => document.querySelector('.upd-banner .icon').click()); await wait(50);
 ok('banner dismissable', !(await txt()).includes('Kuadro 1.1.0 is ready.'));
-await p.evaluate(() => [...document.querySelectorAll('button')].find(b => b.textContent.startsWith('Open demo')).click()); await wait(1500);
+await p.evaluate(() => [...document.querySelectorAll('button')].find(b => b.textContent.startsWith('Try the demo')).click()); await wait(1500);
 await p.evaluate(() => [...document.querySelectorAll('.nav')].find(b => b.textContent.startsWith('Settings')).click()); await wait(300);
 await p.setViewport({ width: 1300, height: 600 }); await wait(200);
 ok('settings footer shows ready state', await p.evaluate(() => { const m = document.querySelector('.set nav .upd-mini'); return !!m && m.textContent.includes('Kuadro 1.0.0') && m.textContent.includes('Restart and update'); }));

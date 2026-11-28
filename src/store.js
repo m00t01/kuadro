@@ -831,7 +831,7 @@ export function createStore(api, me, opts = {}) {
         if (x.type === 'checklist') { const k = checklists().find(c => c.id === x.list) || checklists()[0]; const p = progressOf(id); if (k && !((S.pages[id] || {}).md || '').includes('## ✅ ' + k.name) && (p.total === 0 || !x.once)) await addChecklist(id, k.name, k.items); }
         if (x.type === 'checkAll') await checkAll(id, true);
         if (x.type === 'top' || x.type === 'bottom') { const rs = S.tabs[cur.tab].rows.filter(r => !r.tmp && r.id !== id); if (rs.length) await reorder(cur.tab, id, x.type === 'top' ? rs[0].id : rs[rs.length - 1].id, x.type === 'bottom'); }
-        if (x.type === 'comment' && x.msg) { const c = { id: newId(), rowId: id, author: me.email, name: '⚡ ' + (a.name || tr('Automatización')), at: now(), text: fill(x.msg, cur), parent: '', edited: '', deleted: false }; S.comments = [...S.comments, c]; emit(); enqueue(() => api.append(`${q(APP.comments)}!A1`, [[c.id, c.rowId, c.author, c.name, c.at, c.text, '', '', '']], 'RAW')); }
+        if (x.type === 'comment' && x.msg) { const c = { id: newId(), rowId: id, author: me.email, name: (a.name || tr('Automatización')), at: now(), text: fill(x.msg, cur), parent: '', edited: '', deleted: false }; S.comments = [...S.comments, c]; emit(); enqueue(() => api.append(`${q(APP.comments)}!A1`, [[c.id, c.rowId, c.author, c.name, c.at, c.text, '', '', '']], 'RAW')); }
         if (x.type === 'dup' && x.tab && S.tabs[x.tab] && S.tabs[x.tab].idCol >= 0) { const v = {}; Object.entries(cur.v).forEach(([k, val]) => { if (S.tabs[x.tab].header.includes(k) && type(k) !== 'auto' && k !== folderCol() && val !== '' && val !== false) v[k] = val; }); const tc = S.config.settings.titleCol; if (tc) v[tc] = (cur.v[tc] || '') + (x.suffix ? ' ' + x.suffix : ''); if (x.col && x.val !== undefined && S.tabs[x.tab].header.includes(x.col)) v[x.col] = x.val; addRow(x.tab, v, { system: true }); }
         if (x.type === 'notify') {
           const who = x.to === 'me' ? [myName()] : x.to && x.to.startsWith('col:') ? String(cur.v[x.to.slice(4)] || '').split(',').map(t => t.trim()).filter(Boolean) : x.to && x.to.startsWith('user:') ? [(S.config.users.find(u => u.email === x.to.slice(5)) || {}).name].filter(Boolean) : [];
@@ -849,7 +849,7 @@ export function createStore(api, me, opts = {}) {
       const row = S.tabs[tab]?.rows.find(r => r.id === id); if (!row) continue;
       if (!(a.conds || []).every(c => condOk(row, c))) continue;
       runActions(a, id);
-      if (!info || !info.quiet) toast('⚡ ' + (a.name || tr('Automatización')) + ': ' + (titleOf(row) || tr('Sin título')).slice(0, 40));
+      if (!info || !info.quiet) toast((a.name || tr('Automatización')) + ': ' + (titleOf(row) || tr('Sin título')).slice(0, 40));
     }
   }
   // Disparadores por fecha («N días antes/después de una fecha»): se revisan al abrir y cada 30 minutos.
@@ -869,7 +869,7 @@ export function createStore(api, me, opts = {}) {
       }
     }
     if (JSON.stringify(fired) !== JSON.stringify(S.config.autoFired || {})) { S.config.autoFired = fired; saveConfig(); }
-    if (n) toast(tr('⚡ {n} automatizaciones por fecha se ejecutaron', { n }));
+    if (n) toast(tr('{n} automatizaciones por fecha se ejecutaron', { n }));
     return n;
   }
   // Automatizaciones de ejemplo que se agregan una sola vez si las columnas existen.

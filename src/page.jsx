@@ -1,7 +1,7 @@
 // Página de cada elemento: portada, ícono, propiedades, vista previa de YouTube, guion, comentarios en hilo, historial y presencia.
 import { useState, useEffect, useRef } from 'preact/hooks';
 import { Field, Pop, Chip, colorOf, RichEditor } from './ui.jsx';
-import { ICON, when, ago, who, Avatar } from './shared.jsx';
+import { ICON, when, ago, who, Avatar, Ic } from './shared.jsx';
 import { urls, ytId, imgSrc, fmtDate } from './util.js';
 import { t as tr, LOCALE } from './i18n.js';
 
@@ -77,7 +77,7 @@ function YTPreview({ st, row, meta, setMeta }) {
     <div class={'yp-count' + (n > 100 ? ' bad' : n > (mode === 'shorts' && !cmp ? 40 : 70) ? ' warn' : '')}>{tr('{n}/100 caracteres', { n })}{n > 100 ? tr(' · YouTube no permite más de 100') : mode === 'shorts' && !cmp ? (n > 40 ? tr(' · en el estante de Shorts se corta alrededor del carácter 40') : tr(' · se lee completo')) + tr(' · la miniatura se recorta al centro en vertical (9:16)') : n > 70 ? tr(' · en la portada se corta alrededor del carácter 70') : n > 55 ? tr(' · en celular puede cortarse') : tr(' · se lee completo')}</div>
     {!cmp && <div class="yp-stage"><YTCard mode={mode} title={title} thumb={thumb} channel={channel} /></div>}
     {cmp && <div class="yp-cmp"><div class="yp-var cur"><div class="yp-lab">{tr("Actual")}</div><YTCard mode="home" title={title} thumb={thumb} channel={channel} /></div>
-      {variants.map((v, i) => <div class="yp-var"><div class="yp-lab">{tr('Variante {n}', { n: i + 1 })}<span class="sp" />{canEd && <button class="mini" onClick={() => useV(i)}>{tr("Usar esta")}</button>}<button class="icon" title={tr("Quitar")} onClick={() => setMeta({ variants: variants.filter((_, j) => j !== i) })}>✕</button></div>
+      {variants.map((v, i) => <div class="yp-var"><div class="yp-lab">{tr('Variante {n}', { n: i + 1 })}<span class="sp" />{canEd && <button class="mini" onClick={() => useV(i)}>{tr("Usar esta")}</button>}<button class="icon" title={tr("Quitar")} onClick={() => setMeta({ variants: variants.filter((_, j) => j !== i) })}><Ic n="x" s={14} /></button></div>
         <YTCard mode="home" title={v.title} thumb={imgSrc(v.thumb)} channel={channel} />
         <input placeholder={tr("Título alternativo")} value={v.title} onInput={e => setV(i, { title: e.target.value })} />
         <div class="lrow0"><input placeholder={tr("Enlace de miniatura alternativa")} value={v.thumb} onInput={e => setV(i, { thumb: e.target.value })} />{st.ui.canUpload && <button class="mini" onClick={async () => { const u = await st.ui.uploadPick(); if (u) setV(i, { thumb: u }); }}>{tr("Subir")}</button>}</div></div>)}
@@ -144,13 +144,13 @@ export function RowPage({ st, row, onClose, dup, onMoved }) {
   const thumb = s.imageCol && row.v[s.imageCol];
   return <aside class={'page' + (full ? ' full' : '')}><div class="page-h">{st.can('moveTabs') && !row.tmp && others.length ? <select class="tabsel" value="" title={tr("Mover a otra pestaña")} onChange={e => { const to = e.target.value; if (to) { st.moveRow(row.tab, row.id, to); onMoved(to); } }}><option value="">{row.tab}</option>{others.map(t => <option value={t}>{tr('Mover a')} {t}</option>)}</select> : <span class="muted">{row.tab}</span>}
     <span class="sp" />{here.length > 0 && <span class="here-h">{here.map(p => <Avatar name={p.name} size={24} title={tr('{x} también tiene abierta esta página', { x: p.name })} />)}<span class="muted sm">{here.length === 1 ? tr('{x} también está aquí', { x: here[0].name }) : tr('{n} personas aquí', { n: here.length })}</span></span>}
-    {st.can('deleteRows') && !row.tmp && <button class="icon" title={tr("Eliminar")} onClick={() => { if (confirm(tr('¿Eliminar este elemento del Sheet?'))) { st.deleteRow(row.tab, row.id); onClose(); } }}>🗑</button>}
-    <button class="icon" title={full ? tr('Vista lateral') : tr('Pantalla completa')} onClick={() => setFull(!full)}>⤢</button><button class="icon" title={tr("Cerrar (Esc)")} onClick={onClose}>✕</button></div>
+    {st.can('deleteRows') && !row.tmp && <button class="icon" title={tr("Eliminar")} onClick={() => { if (confirm(tr('¿Eliminar este elemento del Sheet?'))) { st.deleteRow(row.tab, row.id); onClose(); } }}><Ic n="trash" s={15} /></button>}
+    <button class="icon" title={full ? tr('Vista lateral') : tr('Pantalla completa')} onClick={() => setFull(!full)}><Ic n="expand" s={14} /></button><button class="icon" title={tr("Cerrar (Esc)")} onClick={onClose}><Ic n="x" s={14} /></button></div>
     <div class="page-b">
       {meta.cover && <div class="cover" style={coverCss(meta.cover)}>{canMeta && <button class="btn cover-btn" ref={coverRef} onClick={() => setCoverPop(true)}>{tr("Cambiar portada")}</button>}</div>}
       <div class={'page-in' + (meta.cover ? ' has-cover' : '')}>
         {meta.icon && <button class="page-icon" ref={iconRef} onClick={() => canMeta && setIconPop(true)} title={tr("Cambiar ícono")}>{meta.icon}</button>}
-        {canMeta && <div class="page-add">{!meta.icon && <button class="mini ghost" ref={iconRef} onClick={() => setIconPop(true)}>{tr("☺ Agregar ícono")}</button>}{!meta.cover && <button class="mini ghost" ref={coverRef} onClick={() => setCoverPop(true)}>{tr("▭ Agregar portada")}</button>}</div>}
+        {canMeta && <div class="page-add">{!meta.icon && <button class="mini ghost" ref={iconRef} onClick={() => setIconPop(true)}><Ic n="smile" s={14} />{tr("Agregar ícono")}</button>}{!meta.cover && <button class="mini ghost" ref={coverRef} onClick={() => setCoverPop(true)}><Ic n="cover" s={14} />{tr("Agregar portada")}</button>}</div>}
         <textarea ref={ta} class="ptitle" rows="1" placeholder={tr("Sin título")} value={title} readOnly={!st.canEditCol(tc) || row.tmp} onInput={e => setTitle(e.target.value)} onFocus={() => focus.current = true}
           onBlur={() => { focus.current = false; if (title !== (row.v[tc] || '')) st.setCell(row.tab, row.id, tc, title.replace(/\s*\n\s*/g, ' ')); }} onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); e.target.blur(); const ed = e.target.closest('.page')?.querySelector('.ProseMirror'); if (ed && ed.isContentEditable) setTimeout(() => { ed.focus(); const r = document.createRange(); r.setStart(ed, 0); r.collapse(true); const sel = getSelection(); sel.removeAllRanges(); sel.addRange(r); }, 0); } }} />
         {dup && <div class="warn">{tr("Hay otro elemento con este mismo título.")}</div>}

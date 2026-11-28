@@ -3,6 +3,7 @@ import { createPortal } from 'preact/compat';
 import { TYPES, COLORS, pickColor } from './store.js';
 import { urls, imgSrc, fmtDate } from './util.js';
 import { t as tr } from './i18n.js';
+import { Ic } from './shared.jsx';
 
 // El atributo autofocus solo funciona una vez por documento; se enfoca a mano al montar.
 export const af = el => { if (el && !el.dataset.af) { el.dataset.af = '1'; el.focus(); } };
@@ -28,7 +29,7 @@ const modalStack = [];
 export function Modal({ title, onClose, children, wide, cls }) {
   const me = useRef({}), close = useRef(onClose); close.current = onClose;
   useEffect(() => { modalStack.push(me.current); const k = e => { if (e.key === 'Escape' && modalStack[modalStack.length - 1] === me.current) { e.stopPropagation(); close.current(); } }; document.addEventListener('keydown', k); return () => { document.removeEventListener('keydown', k); const i = modalStack.indexOf(me.current); if (i >= 0) modalStack.splice(i, 1); }; }, []);
-  return createPortal(<div class="overlay" onMouseDown={e => { if (e.target === e.currentTarget) onClose(); }}><div class={'modal' + (wide ? ' wide' : '') + (cls ? ' ' + cls : '')}><div class="modal-h"><b>{title}</b><button class="icon" onClick={onClose} aria-label={tr("Cerrar")}>✕</button></div><div class="modal-b">{children}</div></div></div>, document.body);
+  return createPortal(<div class="overlay" onMouseDown={e => { if (e.target === e.currentTarget) onClose(); }}><div class={'modal' + (wide ? ' wide' : '') + (cls ? ' ' + cls : '')}><div class="modal-h"><b>{title}</b><button class="icon" onClick={onClose} aria-label={tr("Cerrar")}><Ic n="x" s={14} /></button></div><div class="modal-b">{children}</div></div></div>, document.body);
 }
 
 
@@ -111,12 +112,12 @@ export function ColumnEditor({ st, col, onClose, inline }) {
     {sc.type === 'person' && <label class="f">{tr("Solo personas con el rol")}<select value={sc.roleId || ''} disabled={!canCols} onChange={e => { sc.roleId = e.target.value; st.saveConfig(); re(); }}><option value="">{tr("Cualquiera")}</option>{S.config.roles.map(r => <option value={r.id}>{r.name}</option>)}</select></label>}
     {hasOpts && <label class="f">{tr("Valor por defecto")}<select value={sc.default || ''} disabled={!canOpts} onChange={e => { sc.default = e.target.value; st.saveConfig().then(() => st.autoFill()); re(); }}><option value="">(ninguno)</option>{(sc.options || []).map(o => <option>{o.v}</option>)}</select>
       <span class="hint">{tr("Las filas nuevas y las que estén vacías en esta columna toman este valor automáticamente.")}</span></label>}
-    {hasOpts && <div class="f">Opciones
+    {hasOpts && <div class="f">{tr("Opciones")}
       {(sc.options || []).map((o, i) => <div class="optrow" key={i + o.v}>
         <button class={'dot c-' + o.color} disabled={!canOpts} title={tr("Cambiar color")} onClick={() => { o.color = COLORS[(COLORS.indexOf(o.color) + 1) % COLORS.length]; st.saveConfig(); }} />
         <input value={o.v} disabled={!canOpts} onBlur={e => { if (e.target.value.trim() && e.target.value !== o.v) st.renameOption(col, o.v, e.target.value); }} onKeyDown={e => e.key === 'Enter' && e.target.blur()} />
         <button class="icon" disabled={!canOpts || i === 0} title={tr("Subir")} onClick={() => { const a = sc.options; [a[i - 1], a[i]] = [a[i], a[i - 1]]; st.saveConfig(); }}>↑</button>
-        <button class="icon" disabled={!canOpts} title={tr("Quitar opción")} onClick={() => { sc.options = sc.options.filter(x => x !== o); st.saveConfig(); }}>✕</button></div>)}
+        <button class="icon" disabled={!canOpts} title={tr("Quitar opción")} onClick={() => { sc.options = sc.options.filter(x => x !== o); st.saveConfig(); }}><Ic n="x" s={14} /></button></div>)}
       {canOpts && <div class="optrow"><input placeholder={tr("Nueva opción…")} value={nu} onInput={e => setNu(e.target.value)} onKeyDown={e => e.key === 'Enter' && addOpt()} /><button class="btn" onClick={addOpt}>{tr("Agregar")}</button></div>}
       <p class="hint">{tr("Renombrar una opción la cambia también en todas las filas que la usan. Quitarla no borra el valor de las celdas.")}</p></div>}
     {canCols && <div class="row-end"><button class="btn danger" onClick={() => { if (confirm(tr('¿Eliminar la columna «{x}» y todos sus datos del Sheet?', { x: col }))) { st.deleteColumn(col); onClose(); } }}>{tr("Eliminar columna")}</button></div>}

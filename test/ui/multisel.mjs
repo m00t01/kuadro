@@ -7,7 +7,7 @@ const wait = ms => new Promise(r => setTimeout(r, ms)), out = [], ok = (n, v) =>
 const cellBox = (r, c) => p.evaluate((r, c) => { const b = document.querySelector(`td[data-rc="${r}:${c}"]`).getBoundingClientRect(); return { x: b.x + b.width / 2, y: b.y + b.height / 2 }; }, r, c);
 const data = () => p.evaluate(() => JSON.parse(localStorage.getItem('demo-data-en')));
 await p.goto('file:///home/claude/kuadro/dist/index.html'); await p.evaluate(() => { localStorage.clear(); localStorage.setItem('kuadro-clickopen', '0'); }); await p.reload(); await wait(400);
-await p.evaluate(() => [...document.querySelectorAll('button')].find(b => b.textContent.startsWith('Open demo')).click()); await wait(1800);
+await p.evaluate(() => [...document.querySelectorAll('button')].find(b => b.textContent.startsWith('Try the demo')).click()); await wait(1800);
 await p.evaluate(() => [...document.querySelectorAll('.sidebar .nav')].find(b => b.textContent.startsWith('Main channel')).click()); await wait(400);
 const statusCol = await p.evaluate(() => [...document.querySelectorAll('.grid thead th')].findIndex(th => th.textContent.includes('Status')) - 1);
 // Drag from (0,status) to (3,status).

@@ -6,7 +6,7 @@ const errs = []; p.on('pageerror', e => errs.push(e.message)); p.on('dialog', d 
 const wait = ms => new Promise(r => setTimeout(r, ms)), out = [], ok = (n, v) => out.push((v ? 'ok   ' : 'FAIL ') + n);
 const click = (sel, text) => p.evaluate((s, t) => { const e = [...document.querySelectorAll(s)].find(x => x.textContent.trim().startsWith(t)); if (!e) throw new Error('no ' + t); e.click(); }, sel, text);
 await p.goto('file:///home/claude/kuadro/dist/index.html'); await p.evaluate(() => { localStorage.clear(); localStorage.setItem('kuadro-clickopen', '0'); }); await p.reload(); await wait(400);
-await click('button', 'Open demo'); await wait(1800);
+await click('button', 'Try the demo'); await wait(1800);
 // Make row 1 late (2 days ago, Pending), row 2 due tomorrow (Pending), rows 3-4 published this week.
 await p.evaluate(() => { const d = JSON.parse(localStorage.getItem('demo-data-en')); const s = d.sheets.find(x => x.title === 'Main channel'), h = s.rows[0], di = h.indexOf('Publish date'), si = h.indexOf('Status');
   const day = n => { const x = new Date(); x.setDate(x.getDate() + n); return x.toISOString().slice(0, 10); }; const mon = (() => { const x = new Date(); x.setDate(x.getDate() - ((x.getDay() + 6) % 7)); return x.toISOString().slice(0, 10); })();
@@ -16,7 +16,7 @@ await p.reload(); await wait(1800); await click('.sidebar .nav', 'Main channel')
 const dateIdx = await p.evaluate(() => [...document.querySelectorAll('.grid thead th')].findIndex(th => th.textContent.includes('Publish date')));
 const cls = await p.evaluate(i => [...document.querySelectorAll('.grid tbody tr')].slice(0, 2).map(tr => tr.children[i].className), dateIdx);
 ok('late date red, upcoming orange', /due-late/.test(cls[0]) && /due-soon/.test(cls[1]));
-await click('.sidebar .nav', '🔔'); await wait(300);
+await click('.sidebar .nav', 'Inbox'); await wait(300);
 ok('inbox lists late and upcoming', await p.evaluate(() => { const t = document.querySelector('.inbox').innerText; return t.includes('Late') && t.includes('2 days ago') && t.includes('due tomorrow'); }));
 await p.screenshot({ path: '/tmp/shots/inbox-due.png', captureBeyondViewport: false });
 await p.keyboard.press('Escape'); await p.evaluate(() => document.querySelector('.inbox .icon')?.click()); await wait(200);

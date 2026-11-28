@@ -8,7 +8,7 @@ const wait = ms => new Promise(r => setTimeout(r, ms)), out = [], ok = (n, v) =>
 const titlePt = i => p.evaluate(i => { const td = document.querySelectorAll('.grid tbody tr')[i].querySelector('td.title'), b = td.getBoundingClientRect(); return { x: b.x + 60, y: b.y + b.height / 2 }; }, i);
 const sheetTitles = () => p.evaluate(() => { const s = JSON.parse(localStorage.getItem('demo-data-en')).sheets.find(x => x.title === 'Main channel'); const h = s.rows[0]; return s.rows.slice(1).map(r => r[h.indexOf('Video title')]); });
 await p.goto('file:///home/claude/kuadro/dist/index.html'); await p.evaluate(() => localStorage.clear()); await p.reload(); await wait(400);
-await p.evaluate(() => [...document.querySelectorAll('button')].find(b => b.textContent.startsWith('Open demo')).click()); await wait(1800);
+await p.evaluate(() => [...document.querySelectorAll('button')].find(b => b.textContent.startsWith('Try the demo')).click()); await wait(1800);
 await p.evaluate(() => [...document.querySelectorAll('.sidebar .nav')].find(b => b.textContent.startsWith('Main channel')).click()); await wait(400);
 // Open button vertically centered.
 await p.hover('.grid tbody tr:nth-child(3) td.title'); await wait(100);

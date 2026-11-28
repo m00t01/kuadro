@@ -1,7 +1,7 @@
 // Kanban (propiedades visibles, columnas plegables, carriles), galería y calendario (mes/semana + sin programar).
 import { useState } from 'preact/hooks';
 import { Chip, optionsOf, colorOf, splitMulti } from './ui.jsx';
-import { dueOf, iso, Avatar } from './shared.jsx';
+import { dueOf, iso, Avatar, Ic, Empty } from './shared.jsx';
 import { imgSrc, fmtDate, isISO, urls, ytId } from './util.js';
 import { t as tr, LOCALE, LANG } from './i18n.js';
 
@@ -16,7 +16,7 @@ function PropLine({ st, r, props }) {
     if (ty === 'select' || ty === 'multi') return splitMulti(v).map(x => <Chip v={x} color={colorOf(st, c, x)} />);
     if (ty === 'person') return <span class="pchip" title={c}><Avatar name={v} size={18} />{v}</span>;
     if (ty === 'date') return <span class="muted sm">{fmtDate(v)}</span>;
-    if (ty === 'checkbox') return <span class="muted sm">☑ {c}</span>;
+    if (ty === 'checkbox') return <span class="muted sm vchk"><Ic n="sqcheck" s={12} />{c}</span>;
     if (ty === 'url') return <span class="muted sm">↗ {tr(urls(v).length === 1 ? '1 enlace' : '{n} enlaces', { n: urls(v).length })}</span>;
     if (ty === 'image') return null;
     return <span class="muted sm ptext">{String(v).slice(0, 60)}</span>;
@@ -33,7 +33,7 @@ function Card({ st, r, open, drag, ins, onOver, onDropCard, onMenu, props, icon,
 
 export function KanbanView({ st, rows, open, onNew, sorted, onMenu, onColMenu, prefs, setPrefs, icons, presence }) {
   const S = st.S, g = S.config.settings.groupCol, [over, setOver] = useState(null), [ins, setIns] = useState(null);
-  if (!g) return <div class="empty">{tr("Elige en Ajustes → General la columna por la que se agrupa el kanban.")}</div>;
+  if (!g) return <Empty ic="grid" title={tr("Falta la columna del kanban")} text={tr("Elige en Ajustes → General la columna por la que se agrupa el kanban.")} />;
   const def = S.config.schema[g]?.default || '', lane = prefs.lane && prefs.lane !== g ? prefs.lane : '';
   const props = prefs.cardProps || ['__img', ...defaultCardProps(st, [g])];
   const collapsed = prefs.collapsed || [], foldedLanes = prefs.foldedLanes || [];
@@ -82,19 +82,20 @@ export function KanbanView({ st, rows, open, onNew, sorted, onMenu, onColMenu, p
 
 export function GalleryView({ st, rows, open, onMenu, prefs, icons }) {
   const S = st.S, s = S.config.settings, props = prefs.galleryProps || (s.groupCol ? [s.groupCol] : []), size = prefs.gallerySize || 'm';
-  return <div class={'gallery g-' + size}>{rows.map(r => {
+  const anyImg = rows.some(r => (s.imageCol && imgSrc(r.v[s.imageCol])) || Object.keys(r.v).some(c => st.type(c) === 'url' && urls(r.v[c]).some(ytId)));
+  return <div class={'gallery g-' + size}>{rows.length > 0 && !anyImg && <div class="g-hint"><Ic n="image" s={16} /><span>{tr('Aún no hay miniaturas. Agrega una columna de imagen o pega un enlace de YouTube para ver portadas aquí.')}</span></div>}{rows.map(r => {
     let src = s.imageCol && imgSrc(r.v[s.imageCol]), ref = false;
     if (!src) { const y = Object.keys(r.v).filter(c => st.type(c) === 'url').flatMap(c => urls(r.v[c])).map(ytId).find(Boolean); if (y) { src = `https://i.ytimg.com/vi/${y}/mqdefault.jpg`; ref = true; } }
-    return <div class="gcard" key={r.id} onContextMenu={e => onMenu(e, { row: r })} draggable={st.can('moveTabs') && !r.tmp} onDragStart={e => startDrag(e, r)} onClick={() => st.can('openPages') && open(r)}><div class="gimg">{src ? <img src={src} loading="lazy" onError={e => { e.currentTarget.style.display = 'none'; e.currentTarget.parentNode.classList.add('noimg'); }} /> : null}<span class="gph">{tr("Sin imagen")}</span>{ref && <em>{tr("Referencia")}</em>}</div>
+    return <div class="gcard" key={r.id} onContextMenu={e => onMenu(e, { row: r })} draggable={st.can('moveTabs') && !r.tmp} onDragStart={e => startDrag(e, r)} onClick={() => st.can('openPages') && open(r)}><div class="gimg">{src ? <img src={src} loading="lazy" onError={e => { e.currentTarget.style.display = 'none'; e.currentTarget.parentNode.classList.add('noimg'); }} /> : null}<span class="gph" title={tr("Sin imagen")}><Ic n="image" s={26} w={1.4} /></span>{ref && <em>{tr("Referencia")}</em>}</div>
       <div class="card-t">{icons[r.id] && <span class="ticon">{icons[r.id]}</span>}{r.v[s.titleCol] || <span class="ph">{tr("Sin título")}</span>}</div>{(() => { const pg = st.progressOf(r.id); return pg.total ? <span class={'prog sm' + (pg.done === pg.total ? ' full' : '')}><span class="pt"><i style={{ width: Math.round(100 * pg.done / pg.total) + '%' }} /></span><b>{pg.done}/{pg.total}</b></span> : null; })()}{(d => d ? <span class={'duebadge ' + (d.late ? 'late' : 'soon')}>{d.late ? tr('Atrasado {n} d', { n: d.n }) : d.n === 0 ? tr('Hoy') : d.n === 1 ? tr('Mañana') : tr('En {n} días', { n: d.n })}</span> : null)(dueOf(st, r))}<PropLine st={st} r={r} props={props} /></div>;
-  })}{!rows.length && <div class="empty">{tr("No hay elementos.")}</div>}</div>;
+  })}{!rows.length && <Empty ic="image" title={tr("No hay elementos.")} text={tr("Prueba con otra búsqueda o quita algún filtro.")} />}</div>;
 }
 
 const DOW = LANG === 'es' ? ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'] : ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 export function CalendarView({ st, rows, open, onNew, onMenu, prefs, setPrefs, icons }) {
   const S = st.S, s = S.config.settings, d = s.dateCol, mode = prefs.calMode || 'month', side = prefs.calSide !== false;
   const [m, setM] = useState(() => { const n = new Date(); n.setHours(0, 0, 0, 0); return n; }), [overDay, setOverDay] = useState(null), [overSide, setOverSide] = useState(false);
-  if (!d) return <div class="empty">{tr("Elige en Ajustes → General la columna de fecha que usa el calendario.")}</div>;
+  if (!d) return <Empty ic="cal" title={tr("Falta la columna de fecha")} text={tr("Elige en Ajustes → General la columna de fecha que usa el calendario.")} />;
   let days;
   if (mode === 'week') { const f = new Date(m); f.setDate(f.getDate() - (f.getDay() + 6) % 7); days = Array.from({ length: 7 }, (_, i) => { const x = new Date(f); x.setDate(f.getDate() + i); return x; }); }
   else { const f = new Date(m.getFullYear(), m.getMonth(), 1); f.setDate(1 - (f.getDay() + 6) % 7); days = Array.from({ length: 42 }, (_, i) => { const x = new Date(f); x.setDate(f.getDate() + i); return x; }); }

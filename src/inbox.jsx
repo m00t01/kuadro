@@ -1,5 +1,5 @@
 // Bandeja de avisos: menciones, respuestas, asignaciones, cambios en tus elementos y avisos de automatizaciones.
-import { alertPrefs, dueOf, Avatar, ago, who } from './shared.jsx';
+import { alertPrefs, dueOf, Avatar, ago, who, Ic, Empty } from './shared.jsx';
 import { t as tr } from './i18n.js';
 
 export function inboxItems(st) {
@@ -15,7 +15,7 @@ export function inboxItems(st) {
   }
   for (const h of S.history) {
     if (h.user.toLowerCase() === me) continue; const r = rowById(h.rowId);
-    if (h.kind === 'notify' && h.col === name) out.push({ at: h.at, who: '⚡ ' + h.title, text: '', detail: h.after, row: r, key: 'h' + h.at + h.rowId });
+    if (h.kind === 'notify' && h.col === name) out.push({ at: h.at, who: h.title, ic: 'bolt', text: '', detail: h.after, row: r, key: 'h' + h.at + h.rowId });
     else if (h.kind === 'edit' && st.type(h.col) === 'person' && h.after === name) out.push({ at: h.at, who: who(st, h.user), text: tr('te asignó como {c}', { c: h.col.toLowerCase() }), detail: h.title, row: r, key: 'h' + h.at + h.rowId + h.col });
     else if (h.kind === 'edit' && isMine(r)) out.push({ at: h.at, who: who(st, h.user), text: tr('cambió {c}: {a} → {b}', { c: h.col, a: h.before || '—', b: h.after || '—' }), detail: h.title, row: r, key: 'h' + h.at + h.rowId + h.col });
   }
@@ -23,15 +23,15 @@ export function inboxItems(st) {
   const ap = alertPrefs(), s = S.config.settings, due = [];
   if (ap.on && s.dateCol) for (const t of S.order) for (const r of S.tabs[t].rows) {
     if (r.tmp || (ap.scope === 'mine' && peopleCols.length && !isMine(r))) continue; const d = dueOf(st, r, ap.days); if (!d) continue;
-    due.push({ at: (() => { const x = new Date(); x.setHours(0, 0, 0, 1); return x.toISOString(); })(), due: d, who: d.late ? '⏰ ' + tr('Atrasado') : '📅 ' + tr('Por vencer'), text: d.late ? tr('hace {n} días', { n: d.n }) : d.n === 0 ? tr('vence hoy') : d.n === 1 ? tr('vence mañana') : tr('vence en {n} días', { n: d.n }), detail: r.v[tc] || tr('Sin título'), row: r, key: 'due' + r.id + r.v[s.dateCol] });
+    due.push({ at: (() => { const x = new Date(); x.setHours(0, 0, 0, 1); return x.toISOString(); })(), due: d, who: d.late ? tr('Atrasado') : tr('Por vencer'), ic: d.late ? 'alert' : 'cal', icls: d.late ? 'late' : 'soon', text: d.late ? tr('hace {n} días', { n: d.n }) : d.n === 0 ? tr('vence hoy') : d.n === 1 ? tr('vence mañana') : tr('vence en {n} días', { n: d.n }), detail: r.v[tc] || tr('Sin título'), row: r, key: 'due' + r.id + r.v[s.dateCol] });
   }
   due.sort((a, b) => (a.due.late ? -a.due.n : a.due.n) - (b.due.late ? -b.due.n : b.due.n));
   return [...due, ...out.sort((a, b) => Date.parse(b.at) - Date.parse(a.at))].slice(0, 100);
 }
 export function Inbox({ st, items, seen, open, onClose, onSeen }) {
-  return <div class="inbox"><div class="ib-h"><b>{tr("Bandeja")}</b><span class="sp" /><button class="mini" onClick={onSeen}>{tr("Marcar todo como leído")}</button><button class="icon" onClick={onClose}>✕</button></div>
+  return <div class="inbox"><div class="ib-h"><b>{tr("Bandeja")}</b><span class="sp" />{items.length > 0 && <button class="mini ghost" onClick={onSeen}>{tr("Marcar todo como leído")}</button>}<button class="icon" onClick={onClose}><Ic n="x" s={14} /></button></div>
     <div class="ib-b">{items.map(i => <div class={'ib-i' + (Date.parse(i.at) > seen ? ' new' : '')} onClick={() => { if (i.row) { open(i.row); onClose(); } }}>
-      <Avatar name={i.who.replace('⚡ ', '')} size={26} /><div class="grow"><div><b>{i.who}</b> {i.text}</div>{i.detail && <div class="muted sm ib-d">{i.detail}</div>}
+      {i.ic ? <span class={'ib-ic ' + (i.icls || '')}><Ic n={i.ic} s={14} /></span> : <Avatar name={i.who} size={26} />}<div class="grow"><div><b>{i.who}</b> {i.text}</div>{i.detail && <div class="muted sm ib-d">{i.detail}</div>}
         <div class="muted sm">{ago(i.at)}{i.row ? ' · ' + (i.row.v[st.S.config.settings.titleCol] || tr('Sin título')).slice(0, 50) : ''}</div></div></div>)}
-      {!items.length && <p class="muted pad">{tr("Nada por aquí. Te avisaremos cuando te mencionen, te asignen algo o cambien tus elementos.")}</p>}</div></div>;
+      {!items.length && <Empty ic="inbox" title={tr("Todo al día")} text={tr("Nada por aquí. Te avisaremos cuando te mencionen, te asignen algo o cambien tus elementos.")} />}</div></div>;
 }

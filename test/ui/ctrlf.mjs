@@ -5,7 +5,7 @@ const p = await b.newPage(); await p.setViewport({ width: 1300, height: 860 });
 const errs = []; p.on('pageerror', e => errs.push(e.message));
 const wait = ms => new Promise(r => setTimeout(r, ms)), out = [], ok = (n, v) => out.push((v ? 'ok   ' : 'FAIL ') + n);
 await p.goto('file:///home/claude/kuadro/dist/index.html'); await p.evaluate(() => { localStorage.clear(); localStorage.setItem('kuadro-clickopen', '0'); }); await p.reload(); await wait(400);
-await p.evaluate(() => [...document.querySelectorAll('button')].find(b => b.textContent.startsWith('Open demo')).click()); await wait(1800);
+await p.evaluate(() => [...document.querySelectorAll('button')].find(b => b.textContent.startsWith('Try the demo')).click()); await wait(1800);
 await p.click('.grid tbody td.title'); await wait(100);
 const n0 = await p.evaluate(() => document.querySelectorAll('.grid tbody tr').length);
 await p.keyboard.down('Control'); await p.keyboard.press('f'); await p.keyboard.up('Control'); await wait(150);

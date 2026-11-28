@@ -7,6 +7,7 @@ import TaskItem from '@tiptap/extension-task-item';
 import Link from '@tiptap/extension-link';
 import Image from '@tiptap/extension-image';
 import Placeholder from '@tiptap/extension-placeholder';
+import { Ic } from './shared.jsx';
 import Table from '@tiptap/extension-table';
 import TableRow from '@tiptap/extension-table-row';
 import TableCell from '@tiptap/extension-table-cell';
@@ -117,9 +118,9 @@ export function RichEditor({ value, editable, onChange, placeholder, onImage, ve
   const list = shown();
   return <div class="rich">
     {editable && e && <div class="toolbar">{TB.map(([l, f, a, t]) => <button title={t} class={a(e) ? 'on' : ''} onMouseDown={ev => { ev.preventDefault(); run(f); }}>{l}</button>)}
-      <button title={tr("Enlace")} class={e.isActive('link') ? 'on' : ''} onMouseDown={ev => { ev.preventDefault(); if (e.isActive('link')) run(c => c.unsetLink()); else setAsk('link'); }}>🔗</button>
-      <button title={tr("Imagen")} onMouseDown={ev => { ev.preventDefault(); if (onImage) fileIn.current.click(); else setAsk('image'); }}>🖼</button>
-      {onImage && <button title={tr("Imagen por enlace")} onMouseDown={ev => { ev.preventDefault(); setAsk('image'); }}>🌐</button>}
+      <button title={tr("Enlace")} class={e.isActive('link') ? 'on' : ''} onMouseDown={ev => { ev.preventDefault(); if (e.isActive('link')) run(c => c.unsetLink()); else setAsk('link'); }}><Ic n="link" s={14} /></button>
+      <button title={tr("Imagen")} onMouseDown={ev => { ev.preventDefault(); if (onImage) fileIn.current.click(); else setAsk('image'); }}><Ic n="image" s={14} /></button>
+      {onImage && <button title={tr("Imagen por enlace")} onMouseDown={ev => { ev.preventDefault(); setAsk('image'); }}><Ic n="globe" s={14} /></button>}
       <button title={tr("Más bloques: escribe / en una línea vacía")} onMouseDown={ev => { ev.preventDefault(); run(c => c.insertContent('/')); }}>{tr("＋ Bloque")}</button>
       {up > 0 && <span class="muted sm">{tr("Subiendo imagen…")}</span>}</div>}
     <input type="file" accept="image/*" multiple hidden ref={fileIn} onChange={ev => { upload(ev.target.files); ev.target.value = ''; }} />
