@@ -433,3 +433,18 @@ body.light .plist,body.light .home-act{border-color:#e6e6e4}
 .bar-t{height:8px;background:rgba(255,255,255,.07)}body.light .bar-t{background:#ececea}body.light .bar-t i{filter:none}
 .chk-ed{grid-template-columns:1fr auto;align-items:center;padding:12px;border:1px solid var(--line);border-radius:8px;background:var(--panel)}.chk-ed>input{grid-column:1;grid-row:1;font-weight:600}.chk-ed>.icon{grid-column:2;grid-row:1}.chk-ed>textarea{grid-column:1/-1;grid-row:2;resize:vertical;line-height:1.6}
 body.light .ph{color:#a5a5a2}.ph{color:#6b6b6b}
+/* ===== 1.7.2 what's new ===== */
+.modal.whatsnew{width:min(520px,94vw)}.wn-v+.wn-v{margin-top:18px;padding-top:16px;border-top:1px solid var(--line)}
+.wn-h{display:flex;align-items:center;gap:8px;margin-bottom:8px}.wn-tag{font-size:11px;font-weight:600;padding:1px 7px;border-radius:10px;background:var(--acc-soft);color:var(--acc-tx)}
+.wn-v ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}.wn-v li{display:flex;gap:10px;align-items:flex-start;line-height:1.45;font-size:13.5px}.wn-v li .ic{color:var(--acc-tx);margin-top:3px}
+.wn-f{display:flex;justify-content:flex-end;margin-top:20px}.upd-news{font-size:12px;color:var(--mut);margin-top:4px;display:inline-block}.upd-news:hover{color:var(--tx)}
+/* ===== 1.7.2 users ===== */
+.ulist{border:1px solid var(--line);border-radius:10px;overflow:hidden;margin-bottom:18px}.uitem+.uitem{border-top:1px solid var(--line)}
+.urow{display:flex;align-items:center;gap:12px;padding:10px 12px}.uitem.open{background:rgba(255,255,255,.02)}
+.ucol{flex:1;min-width:0;display:flex;flex-direction:column}.uname{background:transparent;border-color:transparent;padding:2px 6px;margin-left:-6px;font-weight:500;color:var(--tx);height:auto}.uname:hover{border-color:var(--line2)}.uname:focus{background:var(--bg)}
+.umail{font-size:12px;color:var(--mut);display:flex;gap:6px;align-items:center;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.utag{font-size:11px;padding:0 6px;border-radius:8px;background:rgba(255,255,255,.07);color:var(--mut)}.utag.acc{background:var(--acc-soft);color:var(--acc-tx)}
+.urole{width:150px;height:30px}.icon.on{background:var(--hover);color:var(--tx)}.icon-sp{width:28px;flex:none}
+.uov{padding:2px 16px 14px 56px}.uadd{display:flex;flex-direction:column;gap:6px}.uadd input{height:32px}
+body.light .uitem.open{background:rgba(0,0,0,.02)}body.light .utag{background:rgba(0,0,0,.05)}body.light .uname:focus{background:#fff}
+.ctx{max-width:440px}.ctx-i>span:first-child{flex:none}.ctx-h{overflow:hidden;text-overflow:ellipsis;min-width:0}

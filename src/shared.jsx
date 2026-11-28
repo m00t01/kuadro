@@ -13,7 +13,10 @@ export const IP = {
   trash: 'M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v6M14 11v6', expand: 'M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7', x: 'M18 6 6 18M6 6l12 12',
   globe: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20', clock: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 7v5l3 2',
   smile: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM8 14s1.5 2 4 2 4-2 4-2M9 9h.01M15 9h.01', cover: 'M3 5h18v14H3zM3 12h18', alert: 'M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z',
-  sort: 'M3 6h18M6 12h12M10 18h4', filter: 'M3 5h18l-7 8.5V19l-4 2v-7.5L3 5z', chevd: 'm6 9 6 6 6-6',
+  sort: 'M3 6h18M6 12h12M10 18h4', dots: 'M12 13a1 1 0 1 0 0-2 1 1 0 0 0 0 2zM19 13a1 1 0 1 0 0-2 1 1 0 0 0 0 2zM5 13a1 1 0 1 0 0-2 1 1 0 0 0 0 2z', open: 'M7 17 17 7M8 7h9v9', tab: 'M4 5h16v14H4zM4 9h16', palette: 'M12 21a9 9 0 1 1 9-9c0 2-1.5 3-3 3h-2a2 2 0 0 0-1.5 3.3A2 2 0 0 1 12 21zM7.5 11h.01M10.5 7.5h.01M15 7.5h.01',
+  up: 'M12 19V5M5 12l7-7 7 7', down: 'M12 5v14M5 12l7 7 7-7', eyeoff: 'M3 3l18 18M10.6 10.6a2 2 0 0 0 2.8 2.8M9.4 5.2A10 10 0 0 1 12 5c5 0 9 4.5 10 7a12 12 0 0 1-2.6 3.6M6.2 6.2C4 7.6 2.6 9.8 2 12c1 2.5 5 7 10 7a9.7 9.7 0 0 0 4.4-1',
+  eye: 'M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12zM12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z', rows: 'M3 6h18M3 12h18M3 18h18', copy: 'M9 9h11v11H9zM5 15H4V4h11v1', edit: 'M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z',
+  sortAsc: 'M3 6h10M3 12h7M3 18h4M17 18V6M14 9l3-3 3 3', sortDesc: 'M3 6h4M3 12h7M3 18h10M17 6v12M14 15l3 3 3-3', plusCol: 'M4 4h7v16H4zM17 9v6M14 12h6', snow: 'M12 2v20M4.9 7l14.2 10M4.9 17 19.1 7', width: 'M3 12h18M7 8l-4 4 4 4M17 8l4 4-4 4', filter: 'M3 5h18l-7 8.5V19l-4 2v-7.5L3 5z', chevd: 'm6 9 6 6 6-6',
 };
 export const Ic = ({ n, s = 15, w = 1.9, cls }) => <svg class={'ic' + (cls ? ' ' + cls : '')} viewBox="0 0 24 24" width={s} height={s} fill="none" stroke="currentColor" stroke-width={w} stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><path d={IP[n]} /></svg>;
 export const Empty = ({ ic, title, text, children }) => <div class="empty"><span class="em-ic"><Ic n={ic} s={20} w={1.7} /></span>{title && <b>{title}</b>}{text && <p>{text}</p>}{children}</div>;

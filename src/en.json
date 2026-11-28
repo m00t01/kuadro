@@ -963,5 +963,15 @@
 "Opciones": "Options",
 "correo@gmail.com": "email@example.com",
 "Elige una plantilla": "Pick a template",
-"Aún no hay plantillas": "No templates yet"
+"Aún no hay plantillas": "No templates yet",
+"Novedades de Kuadro": "What's new in Kuadro",
+"Versión {v}": "Version {v}",
+"Nueva": "New",
+"Entendido": "Got it",
+"Novedades": "What's new",
+"Dueño": "Owner",
+"{n} ajustes propios": "{n} custom settings",
+"Rol": "Role",
+"¿Quitar a {n} de la lista?": "Remove {n} from the list?",
+"Ajustes individuales: cambian lo que permite su rol solo para esta persona.": "Individual settings: change what their role allows, just for this person."
 }

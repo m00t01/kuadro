@@ -5,12 +5,16 @@ const wait = ms => new Promise(r => setTimeout(r, ms)); const errs = [];
 for (const theme of ['dark', 'light']) {
   const p = await b.newPage(); await p.setViewport({ width: 1400, height: 820 }); p.on('pageerror', e => errs.push(e.message)); p.on('dialog', d => d.dismiss());
   await p.goto('file:///home/claude/kuadro/dist/index.html');
-  await p.evaluate(t => { localStorage.clear(); localStorage.setItem('kuadro-lang', 'en'); localStorage.setItem('appearance', JSON.stringify({ theme: t })); }, theme); await p.reload(); await wait(400);
+  await p.evaluate(t => { localStorage.clear(); localStorage.setItem('kuadro-lang', 'en'); localStorage.setItem('appearance', JSON.stringify({ theme: t })); localStorage.setItem('kuadro-seen-version', JSON.stringify('1.7.1')); }, theme); await p.reload(); await wait(500);
+  await p.screenshot({ path: `/tmp/audit/x-${theme}-whatsnew.png` }); await p.keyboard.press('Escape'); await wait(200);
   const click = (sel, text) => p.evaluate((s, t) => { const e = [...document.querySelectorAll(s)].find(x => x.textContent.trim().startsWith(t)); if (e) e.click(); return !!e; }, sel, text);
   const S = n => p.screenshot({ path: `/tmp/audit/x-${theme}-${n}.png` });
   await click('button', 'Try the demo'); await wait(1800);
   const td = await p.evaluate(() => { const r = document.querySelectorAll('.grid tbody tr')[2].querySelector('td.title').getBoundingClientRect(); return { x: r.x + 60, y: r.y + 10 }; });
   await p.mouse.click(td.x, td.y, { button: 'right' }); await wait(300); await S('ctx');
+  await p.keyboard.press('Escape'); await wait(150); await p.evaluate(() => [...document.querySelectorAll('.grid th')].find(t => t.textContent.includes('Status'))?.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, clientX: 1050, clientY: 72 }))); await wait(300); await S('colmenu'); await p.keyboard.press('Escape'); await wait(150);
+  await p.evaluate(() => [...document.querySelectorAll('.seg button')].find(b => b.textContent === 'Gallery')?.click()); await wait(600); await S('gallery'); await p.evaluate(() => [...document.querySelectorAll('.seg button')].find(b => b.textContent === 'Table')?.click()); await wait(400);
+  await p.mouse.click(td.x, td.y, { button: 'right' }); await wait(300);
   await p.evaluate(() => { const i = [...document.querySelectorAll('.ctx-i')].find(x => x.textContent.startsWith('Move to folder')); i && i.dispatchEvent(new MouseEvent('mouseover', { bubbles: true })); }); await p.hover('.ctx-i.has-sub:last-of-type').catch(() => {}); await wait(200); await S('ctx-sub');
   await p.keyboard.press('Escape'); await p.mouse.click(700, 790); await wait(200);
   await p.click('button[title]').catch(() => {});

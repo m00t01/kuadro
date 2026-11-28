@@ -10,6 +10,7 @@ import { TableView, BulkBar } from './table.jsx';
 import { KanbanView, GalleryView, CalendarView, defaultCardProps } from './views.jsx';
 import { RowPage, HistList } from './page.jsx';
 import { AutomationList } from './auto.jsx';
+import { CHANGES } from './changelog.js';
 import { Inbox, inboxItems } from './inbox.jsx';
 import demoEn from './demo-en.json';
 import demoEs from './demo-es.json';
@@ -114,7 +115,7 @@ function UpdatesMini() {
     {u.state === 'ready' ? <button class="btn primary sm-btn" onClick={() => native.installUpdate()}>{tr("Reiniciar y actualizar")}</button>
       : u.state === 'available' ? <button class="btn primary sm-btn" onClick={() => native.installUpdate()}>{tr("Descargar la versión {v}", { v: u.version })}</button>
       : <button class="btn sm-btn" disabled={checking || u.state === 'downloading' || u.state === 'dev'} onClick={check}>{checking ? tr('Buscando…') : tr('Buscar actualizaciones')}</button>}
-    <div class="upd-s" title={u.state === 'error' ? u.error : ''}>{updText(u)}</div></div>;
+    <div class="upd-s" title={u.state === 'error' ? u.error : ''}>{updText(u)}</div><a href="#" class="upd-news" onClick={e => { e.preventDefault(); openWhatsNew(); }}>{tr("Novedades")}</a></div>;
 }
 // Barra fija cuando una actualización ya está descargada (o, en Mac, disponible).
 function UpdateBanner() {
@@ -132,6 +133,24 @@ function HomeVersion() {
     : u.state === 'checking' || u.state === 'downloading' ? <span>{updText(u)}</span>
     : <a href="#" onClick={e => { e.preventDefault(); if (u.state !== 'dev') native.checkUpdates(); }}>{tr('Buscar actualizaciones')}</a>}
     {(u.state === 'none' || u.state === 'error' || u.state === 'dev') && <span> · {updText(u)}</span>}</div>;
+}
+// «Novedades»: se abre sola una vez después de actualizar (no en la primera instalación) y desde Ajustes o Ctrl+K.
+const APP_VERSION = typeof __VERSION__ !== 'undefined' ? __VERSION__ : '';
+const cmpV = (a, b) => { const x = String(a).split('.').map(Number), y = String(b).split('.').map(Number); for (let i = 0; i < 3; i++) { if ((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) - (y[i] || 0); } return 0; };
+export const openWhatsNew = () => window.dispatchEvent(new Event('kuadro:whatsnew'));
+function WhatsNew() {
+  const [open, setOpen] = useState(false), ver = APP_VERSION;
+  useEffect(() => {
+    const seen = LS.get('kuadro-seen-version', ''); if (ver) LS.set('kuadro-seen-version', ver);
+    if (seen && ver && cmpV(ver, seen) > 0 && CHANGES.some(c => cmpV(c.v, seen) > 0 && cmpV(c.v, ver) <= 0)) setOpen(true);
+    const h = () => setOpen(true); window.addEventListener('kuadro:whatsnew', h); return () => window.removeEventListener('kuadro:whatsnew', h);
+  }, []);
+  if (!open) return null;
+  const list = CHANGES.filter(c => cmpV(c.v, ver || c.v) <= 0).slice(0, 3);
+  return <Modal title={tr('Novedades de Kuadro')} cls="whatsnew" onClose={() => setOpen(false)}>
+    {list.map((c, i) => <div class="wn-v"><div class="wn-h"><b>{tr('Versión {v}', { v: c.v })}</b>{i === 0 && <span class="wn-tag">{tr('Nueva')}</span>}</div>
+      <ul>{(LANG === 'es' ? c.es : c.en).map(t => <li><Ic n="check" s={14} w={2.2} /><span>{t}</span></li>)}</ul></div>)}
+    <div class="wn-f"><button class="btn primary" onClick={() => setOpen(false)}>{tr('Entendido')}</button></div></Modal>;
 }
 // Campo en línea para nombrar o renombrar una pestaña (Enter guarda, Esc cancela).
 function TabNameInput({ initial = '', placeholder, onSave, onCancel }) {
@@ -355,14 +374,17 @@ function Settings({ st, onClose, onCol, onAddCol, start }) {
           <ColList label={tr("Columnas ocultas para este rol")} all={names} value={role.perms.hiddenCols} onChange={v => { role.perms.hiddenCols = v; save(); }} />
           <ColList label={tr("Pestañas ocultas para este rol")} all={S.order} value={role.perms.hiddenTabs} onChange={v => { role.perms.hiddenTabs = v; save(); }} /></div>}
         {role.id !== 'admin' && <button class="btn danger" onClick={() => { if (confirm(tr('¿Eliminar este rol?'))) { c.roles = c.roles.filter(r => r !== role); setRid(c.roles[0]?.id); save(); } }}>{tr("Eliminar rol")}</button>}</div>}</div>}
-    {sec === 'users' && <div>{c.users.map(u => <div class="ucard"><div class="lrow"><input class="grow" value={u.name} onInput={e => { u.name = e.target.value; }} onBlur={save} /><span class="muted grow">{u.email}</span>
-      <select value={u.roleId} onChange={e => { u.roleId = e.target.value; save(); }}>{c.roles.map(r => <option value={r.id}>{r.name}</option>)}</select>
-      <button class="mini" onClick={() => setUopen(uopen === u.email ? null : u.email)}>{tr('Ajustes individuales')}{Object.keys(u.overrides || {}).length ? ` (${Object.keys(u.overrides).length})` : ''}</button>
-      {u.email !== c.owner && <button class="icon" title={tr("Quitar")} onClick={() => { c.users = c.users.filter(x => x !== u); save(); }}><Ic n="x" s={14} /></button>}</div>
-      {uopen === u.email && <div class="checks one ov">{PERMS.map(([k, l]) => <label>{l}<select value={u.overrides?.[k] === true ? 'y' : u.overrides?.[k] === false ? 'n' : ''} onChange={e => { u.overrides = { ...(u.overrides || {}) }; if (!e.target.value) delete u.overrides[k]; else u.overrides[k] = e.target.value === 'y'; save(); }}><option value="">{tr("Según su rol")}</option><option value="y">{tr("Permitir")}</option><option value="n">{tr("Negar")}</option></select></label>)}</div>}</div>)}
-      <div class="lrow"><input class="grow" placeholder={tr("Nombre")} value={nu.name} onInput={e => setNu({ ...nu, name: e.target.value })} /><input class="grow" placeholder={tr("correo@gmail.com")} value={nu.email} onInput={e => setNu({ ...nu, email: e.target.value })} />
-        <button class="btn" onClick={() => { const email = nu.email.trim().toLowerCase(); if (!/.+@.+\..+/.test(email) || c.users.some(u => u.email.toLowerCase() === email)) return; c.users.push({ email, name: nu.name.trim() || email, roleId: c.defaultRoleId, overrides: {} }); setNu({ email: '', name: '' }); save(); }}>{tr("Agregar persona")}</button></div>
-      <p class="hint">{tr("Cada persona debe tener además acceso al Sheet en Google (editor para quien modifica, lector para visitantes). Los permisos de esta lista se aplican dentro de la app.")}</p></div>}
+    {sec === 'users' && <div>
+      <div class="ulist">{c.users.map(u => { const nOv = Object.keys(u.overrides || {}).length; return <div class={'uitem' + (uopen === u.email ? ' open' : '')}><div class="urow">
+        <Avatar name={u.name || u.email} size={32} />
+        <div class="ucol"><input class="uname" value={u.name} title={tr("Nombre")} onInput={e => { u.name = e.target.value; }} onBlur={save} /><span class="umail">{u.email}{u.email === c.owner && <span class="utag">{tr("Dueño")}</span>}{nOv > 0 && <span class="utag acc">{tr("{n} ajustes propios", { n: nOv })}</span>}</span></div>
+        <select class="urole" value={u.roleId} title={tr("Rol")} onChange={e => { u.roleId = e.target.value; save(); }}>{c.roles.map(r => <option value={r.id}>{r.name}</option>)}</select>
+        <button class={'icon' + (uopen === u.email ? ' on' : '')} title={tr('Ajustes individuales')} onClick={() => setUopen(uopen === u.email ? null : u.email)}><Ic n="dots" s={16} w={2.4} /></button>
+        {u.email !== c.owner ? <button class="icon" title={tr("Quitar")} onClick={() => { if (confirm(tr('¿Quitar a {n} de la lista?', { n: u.name || u.email }))) { c.users = c.users.filter(x => x !== u); save(); } }}><Ic n="x" s={14} /></button> : <span class="icon-sp" />}</div>
+        {uopen === u.email && <div class="uov"><p class="hint">{tr("Ajustes individuales: cambian lo que permite su rol solo para esta persona.")}</p><div class="checks one ov">{PERMS.map(([k, l]) => <label>{l}<select value={u.overrides?.[k] === true ? 'y' : u.overrides?.[k] === false ? 'n' : ''} onChange={e => { u.overrides = { ...(u.overrides || {}) }; if (!e.target.value) delete u.overrides[k]; else u.overrides[k] = e.target.value === 'y'; save(); }}><option value="">{tr("Según su rol")}</option><option value="y">{tr("Permitir")}</option><option value="n">{tr("Negar")}</option></select></label>)}</div></div>}</div>; })}</div>
+      <div class="uadd"><b>{tr("Agregar persona")}</b><div class="lrow0"><input class="grow" placeholder={tr("Nombre")} value={nu.name} onInput={e => setNu({ ...nu, name: e.target.value })} /><input class="grow" placeholder={tr("correo@gmail.com")} value={nu.email} onInput={e => setNu({ ...nu, email: e.target.value })} />
+        <button class="btn primary" disabled={!/.+@.+\..+/.test(nu.email.trim())} onClick={() => { const email = nu.email.trim().toLowerCase(); if (!/.+@.+\..+/.test(email) || c.users.some(u => u.email.toLowerCase() === email)) return; c.users.push({ email, name: nu.name.trim() || email, roleId: c.defaultRoleId, overrides: {} }); setNu({ email: '', name: '' }); save(); }}>{tr("Agregar")}</button></div>
+      <p class="hint">{tr("Cada persona debe tener además acceso al Sheet en Google (editor para quien modifica, lector para visitantes). Los permisos de esta lista se aplican dentro de la app.")}</p></div></div>}
     {sec === 'tpl' && <div class="two"><div class="side">{c.templates.map((t, i) => <button class={i === tid ? 'on' : ''} onClick={() => setTid(i)}>{t.name}</button>)}<button onClick={() => { c.templates.push({ name: tr('Nueva plantilla'), content: '# Guion\n\n## Idea\n\n## Escenas\n\n- [ ] Intro\n- [ ] Desarrollo\n- [ ] Cierre\n' }); setTid(c.templates.length - 1); save(); }}>{tr("+ Nueva plantilla")}</button></div>
       {tpl ? <div class="grow"><label class="f">{tr("Nombre")}<input value={tpl.name} onInput={e => { tpl.name = e.target.value; }} onBlur={save} /></label><RichEditor key={tid} value={tpl.content} editable onChange={md => { tpl.content = md; save(); }} />
         <button class="btn danger" onClick={() => { c.templates = c.templates.filter(t => t !== tpl); setTid(0); save(); }}>{tr("Eliminar plantilla")}</button></div> : <div class="grow"><Empty ic="grid" title={c.templates.length ? tr("Elige una plantilla") : tr("Aún no hay plantillas")} text={tr("Una plantilla es el contenido inicial de la página al crear un elemento.")} /></div>}</div>}
@@ -382,7 +404,7 @@ function Workspace({ st, name, onHome }) {
   useEffect(() => { const t = setTimeout(() => { const ap = alertPrefs(); if (!ap.on || !native || !native.notify) return; const today = new Date().toDateString(); try { if (localStorage.getItem('kuadro-due-day:' + name) === today) return; } catch { }
     const due = inboxItems(st).filter(x => x.due); if (!due.length) return; const late = due.filter(x => x.due.late).length, soon = due.length - late;
     native.notify(tr('Fechas en {p}', { p: name }), [late && tr(late === 1 ? '1 video atrasado' : '{n} videos atrasados', { n: late }), soon && tr(soon === 1 ? '1 por vencer' : '{n} por vencer', { n: soon })].filter(Boolean).join(' · ')); try { localStorage.setItem('kuadro-due-day:' + name, today); } catch { } }, 6000); return () => clearTimeout(t); }, []);
-  useEffect(() => { const t0 = setTimeout(() => st.runDateAutomations(), 4000), iv = setInterval(() => st.runDateAutomations(), 30 * 60 * 1000); return () => { clearTimeout(t0); clearInterval(iv); }; }, []);
+  useEffect(() => { const t0 = setTimeout(() => st.runDateAutomationsShared(), 4000), iv = setInterval(() => st.runDateAutomationsShared(), 30 * 60 * 1000); return () => { clearTimeout(t0); clearInterval(iv); }; }, []);
   useEffect(() => { LS.set(pk, { view, tab, views, prefs }); }, [view, tab, views, prefs]);
   useEffect(() => { setSel(new Set()); }, [tab, view]);
   // Atajos globales: Ctrl+K buscar, Ctrl+Z / Ctrl+Y deshacer y rehacer, Esc cerrar página.
@@ -465,6 +487,7 @@ function Workspace({ st, name, onHome }) {
     st.can('manageTabs') && { k: 'tab', label: tr('Nueva pestaña'), kw: 'tab crear', run: () => setNewTab('') },
     ...VIEWS.map(([k, l]) => ({ k: 'v' + k, label: tr('Ir a {x}', { x: l }), kw: 'vista view ' + k, run: () => setView(k) })),
     ...tabs.map(t => ({ k: 't' + t, label: tr('Abrir pestaña «{t}»', { t }), kw: 'pestaña tab ir', run: () => setTab(t) })),
+    { k: 'news', label: tr('Novedades de Kuadro'), kw: 'novedades cambios what is new changelog version', run: () => openWhatsNew() },
     { k: 'inbox', label: tr('Abrir la bandeja'), kw: 'inbox avisos notificaciones', run: () => setInbox(true) },
     { k: 'mine', label: mine ? tr('Ver todo (quitar «Mis tareas»)') : tr('Ver solo mis tareas'), kw: 'mis pendientes my tasks asignado', run: () => setMine(!mine) },
     (filters.length || (prefs.quickOn || []).length) && { k: 'clr', label: tr('Quitar todos los filtros'), kw: 'filtros limpiar clear', run: () => { setFilters([]); setPrefs({ quickOn: [] }); } },
@@ -489,48 +512,51 @@ function Workspace({ st, name, onHome }) {
     const sameTab = (list || T.rows).filter(x => x.tab === r.tab && x.id !== r.id), link = Object.keys(r.v).filter(c => st.type(c) === 'url').flatMap(c => urls(r.v[c]))[0];
     const others = tabs.filter(t => t !== r.tab && S.tabs[t].idCol >= 0), ct = col && st.type(col);
     return { title: title.slice(0, 48) || tr('Sin título'), items: [
-      st.can('openPages') && { label: tr('Abrir'), hint: 'Ctrl+Enter', onClick: () => open(r) },
+      st.can('openPages') && { ic: 'open', label: tr('Abrir'), hint: 'Ctrl+Enter', onClick: () => open(r) },
       ...(() => { if (!col || col === s.titleCol || ['url', 'image'].includes(ct)) return []; const raw = String(r.v[col] ?? ''), v = ct === 'multi' ? splitMulti(raw)[0] || '' : ct === 'checkbox' ? (raw === 'true' ? 'true' : '') : raw; if (!v) return [];
         const shown = ct === 'checkbox' ? col + ' ✓' : v.length > 28 ? v.slice(0, 28) + '…' : v, pinnedQ = (prefs.quick || []).some(x => x.col === col && x.val === v);
-        return ['sep', { label: tr('Filtrar por «{v}»', { v: shown }), onClick: () => setFilters([...filters.filter(f => !(f.col === col && f.val === v)), { col, op: 'is', val: v }]) },
-          pinnedQ ? { label: tr('Quitar «{v}» de filtros rápidos', { v: shown }), onClick: () => unpinQuick(col, v) } : { ic: 'pin', label: tr('Fijar «{v}» como filtro rápido', { v: shown }), onClick: () => pinQuick(col, v) }]; })(),
+        return ['sep', { ic: 'filter', label: tr('Filtrar por «{v}»', { v: shown }), onClick: () => setFilters([...filters.filter(f => !(f.col === col && f.val === v)), { col, op: 'is', val: v }]) },
+          pinnedQ ? { ic: 'x', label: tr('Quitar «{v}» de filtros rápidos', { v: shown }), onClick: () => unpinQuick(col, v) } : { ic: 'pin', label: tr('Fijar «{v}» como filtro rápido', { v: shown }), onClick: () => pinQuick(col, v) }]; })(),
       'sep',
-      ok && s.groupCol && T.header.includes(s.groupCol) && (st.canEditCol(s.groupCol) || st.can('moveCards')) && { label: tr('Cambiar ') + s.groupCol.toLowerCase(), sub: sel_(s.groupCol, r) },
-      ...pcols.filter(c => ok && st.canEditCol(c)).map(c => ({ label: tr('Asignar ') + c.toLowerCase(), sub: [...optionsOf(st, c).map(o => ({ label: o.v, check: r.v[c] === o.v, onClick: () => st.setCell(r.tab, r.id, c, o.v) })), ...(r.v[c] ? [{ label: tr('Quitar asignación'), onClick: () => st.setCell(r.tab, r.id, c, '') }] : [])] })),
-      ok && st.can('moveTabs') && others.length && { label: tr('Mover a pestaña'), sub: others.map(t => ({ label: t, onClick: () => st.moveRow(r.tab, r.id, t) })) },
-      ok && st.can('editCells') && { label: tr('Color de fila'), sub: colorItems([{ tab: r.tab, id: r.id }], cc ? r.v[cc] : '') },
-      ok && st.can('editPages') && { label: tr('Agregar checklist'), sub: st.checklists().map(c => ({ label: c.name, onClick: () => st.addChecklist(r.id, c.name, c.items) })) },
-      ok && st.can('moveCards') && view === 'table' && { label: tr('Mover a carpeta'), sub: folderItems(r.tab, [r.id], st.folderCol() ? String(r.v[st.folderCol()] || '') : '') },
-      ok && st.can('moveCards') && !sort.col && sameTab.length && { label: list && !ctxTable ? tr('Subir al inicio de la columna') : tr('Subir al inicio'), onClick: () => st.reorder(r.tab, r.id, sameTab[0].id, false) },
-      ok && st.can('moveCards') && !sort.col && sameTab.length && { label: list && !ctxTable ? tr('Bajar al final de la columna') : tr('Bajar al final'), onClick: () => st.reorder(r.tab, r.id, sameTab[sameTab.length - 1].id, true) },
+      ok && s.groupCol && T.header.includes(s.groupCol) && (st.canEditCol(s.groupCol) || st.can('moveCards')) && { ic: 'select', label: tr('Cambiar ') + s.groupCol.toLowerCase(), sub: sel_(s.groupCol, r) },
+      ...pcols.filter(c => ok && st.canEditCol(c)).map(c => ({ ic: 'user', label: tr('Asignar ') + c.toLowerCase(), sub: [...optionsOf(st, c).map(o => ({ label: o.v, check: r.v[c] === o.v, onClick: () => st.setCell(r.tab, r.id, c, o.v) })), ...(r.v[c] ? [{ label: tr('Quitar asignación'), onClick: () => st.setCell(r.tab, r.id, c, '') }] : [])] })),
       'sep',
-      hiddenRows.has(r.id) ? { label: tr('Volver a mostrar esta fila'), onClick: () => unhideRows([r.id]) } : { label: tr('Ocultar fila'), hint: tr('solo en tu vista'), onClick: () => hideRows([r.id]) },
-      view === 'table' && { label: tr('Alto de filas'), sub: rowHItems() },
+      ok && st.can('moveTabs') && others.length && { ic: 'tab', label: tr('Mover a pestaña'), sub: others.map(t => ({ label: t, onClick: () => st.moveRow(r.tab, r.id, t) })) },
+      ok && st.can('editCells') && { ic: 'palette', label: tr('Color de fila'), sub: colorItems([{ tab: r.tab, id: r.id }], cc ? r.v[cc] : '') },
+      ok && st.can('editPages') && { ic: 'sqcheck', label: tr('Agregar checklist'), sub: st.checklists().map(c => ({ label: c.name, onClick: () => st.addChecklist(r.id, c.name, c.items) })) },
+      ok && st.can('moveCards') && view === 'table' && { ic: 'folder', label: tr('Mover a carpeta'), sub: folderItems(r.tab, [r.id], st.folderCol() ? String(r.v[st.folderCol()] || '') : '') },
+      ok && st.can('moveCards') && !sort.col && sameTab.length && { ic: 'up', label: list && !ctxTable ? tr('Subir al inicio de la columna') : tr('Subir al inicio'), onClick: () => st.reorder(r.tab, r.id, sameTab[0].id, false) },
+      ok && st.can('moveCards') && !sort.col && sameTab.length && { ic: 'down', label: list && !ctxTable ? tr('Bajar al final de la columna') : tr('Bajar al final'), onClick: () => st.reorder(r.tab, r.id, sameTab[sameTab.length - 1].id, true) },
       'sep',
-      ok && st.can('addRows') && { label: tr('Duplicar'), onClick: () => { const v = {}; T.header.forEach(h => { if (h && h !== 'ID' && st.type(h) !== 'auto' && r.v[h] !== '' && r.v[h] !== false) v[h] = r.v[h]; }); v[s.titleCol] = title + tr(' (copia)'); st.addRow(r.tab, v, { page: (S.pages[r.id] || {}).md || '' }); } },
-      { label: tr('Copiar título'), onClick: () => copyText(title, st) },
-      col && col !== s.titleCol && r.v[col] !== '' && r.v[col] !== false && { label: tr('Copiar «') + col + '»', onClick: () => copyText(ct === 'date' ? fmtDate(r.v[col]) : String(r.v[col]), st) },
-      link && { label: tr('Abrir enlace'), hint: link.replace(/^https?:\/\/(www\.)?/, '').slice(0, 22), onClick: () => st.ui.open(link) },
-      ok && col && col !== s.titleCol && ct !== 'auto' && st.canEditCol(col) && r.v[col] !== '' && r.v[col] !== false && { label: tr('Vaciar «') + col + '»', onClick: () => st.setCell(r.tab, r.id, col, ct === 'checkbox' ? false : '') },
+      hiddenRows.has(r.id) ? { ic: 'eye', label: tr('Volver a mostrar esta fila'), onClick: () => unhideRows([r.id]) } : { ic: 'eyeoff', label: tr('Ocultar fila'), hint: tr('solo en tu vista'), onClick: () => hideRows([r.id]) },
+      view === 'table' && { ic: 'rows', label: tr('Alto de filas'), sub: rowHItems() },
       'sep',
-      ok && st.can('deleteRows') && { label: tr('Eliminar'), hint: '', danger: true, onClick: () => { if (confirm(tr('¿Eliminar «{x}» del Sheet?', { x: title || tr('este elemento') }))) st.deleteRow(r.tab, r.id); } },
+      ok && st.can('addRows') && { ic: 'copy', label: tr('Duplicar'), onClick: () => { const v = {}; T.header.forEach(h => { if (h && h !== 'ID' && st.type(h) !== 'auto' && r.v[h] !== '' && r.v[h] !== false) v[h] = r.v[h]; }); v[s.titleCol] = title + tr(' (copia)'); st.addRow(r.tab, v, { page: (S.pages[r.id] || {}).md || '' }); } },
+      { ic: 'copy', label: tr('Copiar título'), onClick: () => copyText(title, st) },
+      col && col !== s.titleCol && r.v[col] !== '' && r.v[col] !== false && { ic: 'copy', label: tr('Copiar «') + col + '»', onClick: () => copyText(ct === 'date' ? fmtDate(r.v[col]) : String(r.v[col]), st) },
+      link && { ic: 'link', label: tr('Abrir enlace'), hint: link.replace(/^https?:\/\/(www\.)?/, '').slice(0, 22), onClick: () => st.ui.open(link) },
+      ok && col && col !== s.titleCol && ct !== 'auto' && st.canEditCol(col) && r.v[col] !== '' && r.v[col] !== false && { ic: 'x', label: tr('Vaciar «') + col + '»', onClick: () => st.setCell(r.tab, r.id, col, ct === 'checkbox' ? false : '') },
+      'sep',
+      ok && st.can('deleteRows') && { ic: 'trash', label: tr('Eliminar'), hint: '', danger: true, onClick: () => { if (confirm(tr('¿Eliminar «{x}» del Sheet?', { x: title || tr('este elemento') }))) st.deleteRow(r.tab, r.id); } },
     ] };
   };
   const colMenu = ({ col }) => ({ title: col, items: [
-    (st.can('manageColumns') || st.can('manageOptions')) && { label: tr('Editar columna…'), onClick: () => setColEdit(col) },
-    { label: tr('Ordenar A → Z'), check: sort.col === col && sort.dir > 0, onClick: () => setSort({ col, dir: 1 }) },
-    { label: tr('Ordenar Z → A'), check: sort.col === col && sort.dir < 0, onClick: () => setSort({ col, dir: -1 }) },
-    sort.col && { label: tr('Quitar orden'), onClick: () => setSort({ col: '', dir: 1 }) },
-    { label: tr('Filtrar por esta columna'), onClick: () => { setFilters([...filters, { col, op: optionsOf(st, col).length ? 'is' : 'has', val: '' }]); setFpop(true); } },
-    col !== s.titleCol && { label: tr('Ocultar en esta vista'), onClick: () => setPrefs({ hidden: [...(prefs.hidden || []), col] }) },
-    view === 'table' && (prefs.groupBy === col ? { label: tr('Quitar agrupación'), onClick: () => setPrefs({ groupBy: '' }) } : { label: tr('Agrupar por esta columna'), onClick: () => setPrefs({ groupBy: col }) }),
-    view === 'table' && (prefs.freezeTo === col ? { label: tr('Quitar columnas fijas'), onClick: () => setPrefs({ freezeTo: '' }) } : { label: tr('Fijar columnas hasta aquí'), hint: tr('al desplazar de lado'), onClick: () => setPrefs({ freezeTo: col }) }),
-    view === 'table' && prefs.freezeTo && prefs.freezeTo !== col && { label: tr('Quitar columnas fijas'), onClick: () => setPrefs({ freezeTo: '' }) },
-    { label: tr('Alto de filas'), sub: rowHItems() },
-    (prefs.widths || {})[col] && { label: tr('Restablecer ancho'), onClick: () => { const w = { ...prefs.widths }; delete w[col]; setPrefs({ widths: w }); } },
+    (st.can('manageColumns') || st.can('manageOptions')) && { ic: 'edit', label: tr('Editar columna…'), onClick: () => setColEdit(col) },
     'sep',
-    st.can('manageColumns') && { label: tr('Insertar columna'), onClick: () => setAddCol({ name: '', type: 'text', all: true }) },
-    st.can('manageColumns') && col !== s.titleCol && { label: tr('Eliminar columna del Sheet'), danger: true, onClick: () => { if (confirm(tr('¿Eliminar la columna «{x}» y todos sus datos del Sheet?', { x: col }))) st.deleteColumn(col); } },
+    { ic: 'sortAsc', label: tr('Ordenar A → Z'), check: sort.col === col && sort.dir > 0, onClick: () => setSort({ col, dir: 1 }) },
+    { ic: 'sortDesc', label: tr('Ordenar Z → A'), check: sort.col === col && sort.dir < 0, onClick: () => setSort({ col, dir: -1 }) },
+    sort.col && { ic: 'x', label: tr('Quitar orden'), onClick: () => setSort({ col: '', dir: 1 }) },
+    { ic: 'filter', label: tr('Filtrar por esta columna'), onClick: () => { setFilters([...filters, { col, op: optionsOf(st, col).length ? 'is' : 'has', val: '' }]); setFpop(true); } },
+    'sep',
+    col !== s.titleCol && { ic: 'eyeoff', label: tr('Ocultar en esta vista'), onClick: () => setPrefs({ hidden: [...(prefs.hidden || []), col] }) },
+    view === 'table' && (prefs.groupBy === col ? { ic: 'list', label: tr('Quitar agrupación'), onClick: () => setPrefs({ groupBy: '' }) } : { ic: 'list', label: tr('Agrupar por esta columna'), onClick: () => setPrefs({ groupBy: col }) }),
+    view === 'table' && (prefs.freezeTo === col ? { ic: 'pin', label: tr('Quitar columnas fijas'), onClick: () => setPrefs({ freezeTo: '' }) } : { ic: 'pin', label: tr('Fijar columnas hasta aquí'), hint: tr('al desplazar de lado'), onClick: () => setPrefs({ freezeTo: col }) }),
+    view === 'table' && prefs.freezeTo && prefs.freezeTo !== col && { label: tr('Quitar columnas fijas'), onClick: () => setPrefs({ freezeTo: '' }) },
+    { ic: 'rows', label: tr('Alto de filas'), sub: rowHItems() },
+    (prefs.widths || {})[col] && { ic: 'width', label: tr('Restablecer ancho'), onClick: () => { const w = { ...prefs.widths }; delete w[col]; setPrefs({ widths: w }); } },
+    'sep',
+    st.can('manageColumns') && { ic: 'plusCol', label: tr('Insertar columna'), onClick: () => setAddCol({ name: '', type: 'text', all: true }) },
+    st.can('manageColumns') && col !== s.titleCol && { ic: 'trash', label: tr('Eliminar columna del Sheet'), danger: true, onClick: () => { if (confirm(tr('¿Eliminar la columna «{x}» y todos sus datos del Sheet?', { x: col }))) st.deleteColumn(col); } },
   ] });
   const kcolMenu = (e, opt, fold) => { e.preventDefault(); e.stopPropagation();
     const setBg = v => { opt.colBg = v; st.saveConfig(); };
@@ -759,7 +785,7 @@ function App() {
   useEffect(() => {
     LS.set('current', cur); if (!cur || boot) { setSt(null); return; }
     let api, me; const demo = cur === 'demo';
-    if (demo) { api = new MockSheets(LS.get('demo-data-' + LANG, null) || JSON.parse(JSON.stringify(LANG === 'es' ? demoEs : demoEn)), d => LS.set('demo-data-' + LANG, d)); me = { email: 'demo@hojabase.app', name: tr('Tú') }; }
+    if (demo) { const old = localStorage.getItem('demo-data-' + LANG); if (old && old.includes('demo@hojabase.app')) try { localStorage.setItem('demo-data-' + LANG, old.split('demo@hojabase.app').join('you@example.com')); } catch { } api = new MockSheets(LS.get('demo-data-' + LANG, null) || JSON.parse(JSON.stringify(LANG === 'es' ? demoEs : demoEn)), d => LS.set('demo-data-' + LANG, d)); me = { email: 'you@example.com', name: tr('Tú') }; }
     else { const p = projects.find(p => p.id === cur); if (!p || !user) { setCur(null); return; } api = new GoogleSheets(p.sheetId, force => native.token(!!force), async (url, o) => { const r = await native.fetch(url, o); return { ...r, json: async () => JSON.parse(r.text || '{}') }; }); me = user; }
     const s = createStore(api, me, { notify: (t, b) => native ? native.notify(t, b) : null });
     const toBytes = async f => new Uint8Array(await f.arrayBuffer());
@@ -778,8 +804,8 @@ function App() {
   }, [cur, boot, user && user.email]);
   if (boot) return <div class="center">{tr("Cargando…")}</div>;
   const banner = native && native.updateState ? <UpdateBanner /> : null;
-  if (!cur || !st) return <>{banner}<Home user={user} setUser={setUser} projects={projects} setProjects={setProjects} onOpen={setCur} /></>;
-  return <>{banner}<Workspace key={cur} st={st} name={cur} onHome={() => setCur(null)} /></>;
+  if (!cur || !st) return <>{banner}<WhatsNew /><Home user={user} setUser={setUser} projects={projects} setProjects={setProjects} onOpen={setCur} /></>;
+  return <>{banner}<WhatsNew /><Workspace key={cur} st={st} name={cur} onHome={() => setCur(null)} /></>;
 }
 document.addEventListener('contextmenu', e => { if (!e.target.closest('input, textarea, .prose, [contenteditable]')) e.preventDefault(); });
 render(<App />, document.getElementById('root'));

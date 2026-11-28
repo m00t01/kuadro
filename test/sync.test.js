@@ -322,3 +322,18 @@ test('automatizaciones nuevas: carpeta, color, checklist, completar checklist, c
   const ran = st.runDateAutomations(); await st.idle(); await new Promise(res => setTimeout(res, 50)); await st.idle();
   assert.ok(ran >= 1); assert.equal(cell(api, tab, r3.id, cc), 'orange'); assert.equal(st.runDateAutomations(), 0);
 });
+
+test('automatizaciones por fecha: dos computadoras a la vez, los avisos salen una sola vez (candado)', async () => {
+  const A = await ready(); const tab = A.S.order[0]; const dc = Object.keys(A.S.config.schema).find(k => A.S.config.schema[k].type === 'date' && A.S.tabs[tab].header.includes(k));
+  const rows = A.S.tabs[tab].rows.slice(3, 6); for (const r of rows) A.st.setCell(tab, r.id, dc, A.st.addDays(A.st.todayISO(), 1)); await A.st.idle();
+  A.S.config.automations = [{ id: 'dl', name: 'aviso', enabled: true, when: { type: 'date', col: dc, dir: 'before', n: 1 }, conds: [], actions: [{ type: 'comment', msg: 'mañana' }] }]; await A.st.saveConfig(); await A.st.idle();
+  const B = await boot({ email: 'ana@example.com', name: 'Ana' }, null, A.api); B.S.config.users = A.S.config.users;
+  A.S.config.users = [...(A.S.config.users || []), { email: 'ana@example.com', name: 'Ana', roleId: 'admin', overrides: {} }]; await A.st.saveConfig(); await A.st.idle(); await B.st.refresh();
+  const [na, nb] = await Promise.all([A.st.runDateAutomationsShared({ jitter: 0, settle: 30 }), B.st.runDateAutomationsShared({ jitter: 0, settle: 30 })]);
+  await A.st.idle(); await B.st.idle(); await A.st.refresh();
+  assert.ok(B.st.can('editCells'), 'B can edit'); assert.equal(na + nb, 3, `ran A=${na} B=${nb}`);
+  const cs = A.S.comments.filter(c => rows.some(r => r.id === c.rowId) && c.text === 'mañana'); assert.equal(cs.length, 3);
+  // Una segunda vuelta no repite nada, y el candado queda libre.
+  const again = await Promise.all([A.st.runDateAutomationsShared({ jitter: 0, settle: 10 }), B.st.runDateAutomationsShared({ jitter: 0, settle: 10 })]);
+  assert.deepEqual(again, [0, 0]); await A.st.refresh(); assert.ok(!A.S.config.autoLease);
+});

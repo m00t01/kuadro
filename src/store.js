@@ -872,6 +872,23 @@ export function createStore(api, me, opts = {}) {
     if (n) toast(tr('{n} automatizaciones por fecha se ejecutaron', { n }));
     return n;
   }
+  // Versión para el equipo: evita que dos computadoras disparen los mismos avisos.
+  // 1) espera al azar, 2) relee el Sheet y respeta un candado vigente de otra persona,
+  // 3) escribe su candado (se libera al terminar; si la app se cierra a medias vence en 30 s), 4) espera ~2.5 s y relee: solo sigue si el candado sigue siendo suyo.
+  async function runDateAutomationsShared(o = {}) {
+    const jitter = o.jitter ?? 2500, settle = o.settle ?? 2500, ttl = o.ttl ?? 30000, sleep = ms => new Promise(r => setTimeout(r, ms));
+    const has = () => (S.config.automations || []).some(a => a.enabled !== false && a.when && a.when.type === 'date' && a.when.col);
+    const mineOk = () => S.prepared && !S.readOnly && can('editCells') && has();
+    if (!mineOk()) return 0;
+    await sleep(Math.random() * jitter); await refresh(); if (!mineOk()) return 0;
+    const L = S.config.autoLease; if (L && L.by !== me.email && Date.parse(L.until) > Date.now()) return 0;
+    const token = newId(); S.config.autoLease = { by: me.email, token, until: new Date(Date.now() + ttl).toISOString() }; await saveConfig();
+    await sleep(settle); await refresh();
+    if (!S.config.autoLease || S.config.autoLease.token !== token) return 0;
+    fired = null; const n = runDateAutomations(); await idle();
+    if (S.config.autoLease && S.config.autoLease.token === token) { S.config.autoLease = null; await saveConfig(); }
+    return n;
+  }
   // Automatizaciones de ejemplo que se agregan una sola vez si las columnas existen.
   function seedAutomations() {
     const c = S.config; if (c.autoSeeded) return false; c.autoSeeded = true; c.automations = c.automations || [];
@@ -883,5 +900,5 @@ export function createStore(api, me, opts = {}) {
     return true;
   }
   const searchPages = (qy, rows) => { const k = norm(qy); if (k.length < 2) return []; const out = []; for (const r of rows) { const md = S.pages[r.id]?.md; if (!md) continue; const i = norm(md).indexOf(k); if (i >= 0) out.push({ row: r, snippet: md.replace(/[#*>`\[\]-]/g, ' ').replace(/\s+/g, ' ').slice(Math.max(0, i - 30), i + 70) }); } return out; };
-  return { runAutomations, todayISO, autoFill, setMany, undoLast, redoLast, setPageMeta, setPresence, editComment, deleteComment, searchPages, S, subscribe: f => { subs.add(f); return () => subs.delete(f); }, emit, toast, init, refresh, prepare, can, canEditCol, hiddenCols, hiddenTabs, type, myName, perms, setCell, resolveConflict, addRow, deleteRow, moveRow, reorder, undo, addColumn, renameColumn, deleteColumn, addTab, renameTab, tabNameError, deleteTab, restoreTab, canRestoreTab, undoable, folderCol, foldersOf, addFolder, dropRow, colorCol, setRowColor, ensureSysCol, progressOf, addChecklist, checkAll, checklists, defaultChecklists, runDateAutomations, addDays, moveToFolder, renameFolder, deleteFolder, syncGroups, folderNameError, renameOption, saveConfig, savePage, addComment, allRows, duplicates, idle, api };
+  return { runAutomations, runDateAutomationsShared, todayISO, autoFill, setMany, undoLast, redoLast, setPageMeta, setPresence, editComment, deleteComment, searchPages, S, subscribe: f => { subs.add(f); return () => subs.delete(f); }, emit, toast, init, refresh, prepare, can, canEditCol, hiddenCols, hiddenTabs, type, myName, perms, setCell, resolveConflict, addRow, deleteRow, moveRow, reorder, undo, addColumn, renameColumn, deleteColumn, addTab, renameTab, tabNameError, deleteTab, restoreTab, canRestoreTab, undoable, folderCol, foldersOf, addFolder, dropRow, colorCol, setRowColor, ensureSysCol, progressOf, addChecklist, checkAll, checklists, defaultChecklists, runDateAutomations, addDays, moveToFolder, renameFolder, deleteFolder, syncGroups, folderNameError, renameOption, saveConfig, savePage, addComment, allRows, duplicates, idle, api };
 }
